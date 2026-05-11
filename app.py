@@ -218,6 +218,7 @@ def extract_images():
     if 'file' not in request.files:
         return jsonify({"error": "No file"}), 400
     try:
+        import traceback
         from openpyxl import load_workbook
         wb = load_workbook(io.BytesIO(request.files['file'].read()))
         ws = wb.active
@@ -325,7 +326,10 @@ def extract_images():
             "total_refs": len(row_to_ref)
         })
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        import traceback
+        tb = traceback.format_exc()
+        print(f"extract-images ERROR: {e}\n{tb}")
+        return jsonify({"error": str(e), "traceback": tb}), 500
 
 @app.route('/excel', methods=['POST','OPTIONS'])
 def generate_excel():
