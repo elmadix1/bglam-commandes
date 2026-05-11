@@ -323,36 +323,47 @@ function runImport(){
     var cat=cC>=0?String(row[cC]||'').trim():'';
     var remark=rkC>=0?String(row[rkC]||'').trim():'';
     var img=iC>=0?String(row[iC]||'').trim():'';
-    // Find existing entry with same ref AND same description (or no desc conflict)
-    var ex = catalogue.find(function(c){
-      return c.ref === ref && (c.desc === (desc||ref) || !desc || c.desc === ref);
-    });
-    // Also check for same ref + same group
-    if(!ex) ex = catalogue.find(function(c){ return c.ref===ref && c.group===group; });
-    
     var githubUrl = pendingUrlMap[ref] || '';
     var imgData = githubUrl || pendingImageMap[ref] || '';
-    
+
+    // Primary match: same ref
+    var ex = catalogue.find(function(c){ return c.ref === ref; });
+
     if(ex){
-      var ch=false;
-      if(price!==null&&ex.price!==price){ex.price=price;ch=true;}
-      if(moq!==null&&ex.moq!==moq){ex.moq=moq;ch=true;}
-      if(group&&ex.group!==group){ex.group=group;ch=true;}
-      if(desc&&ex.desc!==desc){ex.desc=desc;ch=true;}
-      if(cat&&!ex.cat){ex.cat=cat;ch=true;}
-      if(remark&&!ex.remark){ex.remark=remark;ch=true;}
-      if(imgData&&!ex.img){ex.img=imgData;ch=true;}
-      ch?updated++:skipped++;
-    } else {
-      // Check if ref already exists with different desc/group → create with group suffix
-      var anyEx = catalogue.find(function(c){ return c.ref===ref; });
-      var finalRef = ref;
-      if(anyEx && group) finalRef = ref+' ('+group+')';
-      // Also rename existing entry if it has no group suffix yet
-      if(anyEx && group && anyEx.group && anyEx.ref === ref) {
-        anyEx.ref = ref+' ('+(anyEx.group)+')';
+      // Same ref exists — check if it's truly the same product
+      // If desc AND group are both different → it's a different product, create duplicate
+      var descDiff = desc && ex.desc && desc !== ex.desc;
+      var groupDiff = group && ex.group && group !== ex.group;
+
+      if(descDiff && groupDiff){
+        // Genuinely different product with same ref — add with group suffix
+        var newRef = ref + ' (' + group + ')';
+        // Only add if this suffixed ref doesn't already exist
+        var alreadyExists = catalogue.find(function(c){ return c.ref === newRef; });
+        if(!alreadyExists){
+          // Rename original if not already renamed
+          if(ex.ref === ref && ex.group){
+            ex.ref = ref + ' (' + ex.group + ')';
+          }
+          catalogue.push({id:nextId++,group:group,ref:newRef,desc:desc||ref,cat:cat||'Non classé',price:price,moq:moq,remark:remark,img:imgData});
+          added++;
+        } else {
+          skipped++;
+        }
+      } else {
+        // Same product — update fields
+        var ch=false;
+        if(price!==null&&ex.price!==price){ex.price=price;ch=true;}
+        if(moq!==null&&ex.moq!==moq){ex.moq=moq;ch=true;}
+        if(group&&ex.group!==group){ex.group=group;ch=true;}
+        if(desc&&ex.desc!==desc){ex.desc=desc;ch=true;}
+        if(cat&&!ex.cat){ex.cat=cat;ch=true;}
+        if(remark&&!ex.remark){ex.remark=remark;ch=true;}
+        if(imgData&&!ex.img){ex.img=imgData;ch=true;}
+        ch?updated++:skipped++;
       }
-      catalogue.push({id:nextId++,group:group,ref:finalRef,desc:desc||ref,cat:cat||'Non classé',price:price,moq:moq,remark:remark,img:imgData});
+    } else {
+      catalogue.push({id:nextId++,group:group,ref:ref,desc:desc||ref,cat:cat||'Non classé',price:price,moq:moq,remark:remark,img:imgData});
       added++;
     }
   });
