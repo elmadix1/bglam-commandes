@@ -254,7 +254,7 @@ def extract_images():
                 row_to_ref[row[0].row] = ref_val
                 if group_val:
                     row_to_group[row[0].row] = group_val
-        img_map = {}  # row -> list of b64 images
+        img_map = {}
         for img in ws._images:
             try:
                 anchor = img.anchor
@@ -263,14 +263,16 @@ def extract_images():
                     d = img._data()
                     if d and len(d) > 100:
                         b64 = 'data:image/png;base64,' + base64.b64encode(d).decode()
-                        if r not in img_map:
-                            img_map[r] = []
-                        img_map[r].append(b64)
+                        if r not in img_map or len(d) > img_map.get('_size_'+str(r), 0):
+                            img_map[r] = b64
+                            img_map['_size_'+str(r)] = len(d)
             except: pass
+        # Remove size tracking keys
+        img_map = {k: v for k, v in img_map.items() if not str(k).startswith('_size_')}
         result = {}      # ref -> b64
         ref_groups = {}  # ref -> group
         ref_count = {}   # ref -> count
-        for img_row, b64_list in img_map.items():
+        for img_row, b64 in img_map.items():
             ref = row_to_ref.get(img_row)
             group = row_to_group.get(img_row)
             if not ref:
@@ -282,22 +284,15 @@ def extract_images():
                 ref_count[ref] = ref_count.get(ref, 0) + 1
                 img_key = (ref + '_' + group) if group else ref
                 if img_key not in result:
-                    best = max(b64_list, key=len) if isinstance(b64_list, list) else b64_list
-                    result[img_key] = best
+                    result[img_key] = b64
                     ref_groups[img_key] = group or ''
 
 
 
-        # Upload to GitHub in background thread (non-blocking)
+        # Upload to GitHub synchronously so frontend knows when done
         if GITHUB_TOKEN and result:
-            import threading
-            rc = dict(ref_count)
-            rg = dict(ref_groups)
-            def upload_all(result=result):
-                for img_key, b64 in result.items():
-                    upload_image_to_github(img_key, b64)
-            t = threading.Thread(target=upload_all, daemon=True)
-            t.start()
+            for img_key, b64 in result.items():
+                upload_image_to_github(img_key, b64)
 
         url_map = {}
         if GITHUB_TOKEN:
