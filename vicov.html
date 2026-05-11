@@ -124,7 +124,7 @@ tr.hq:hover td{background:#d5f5e8}
     <div style="font-size:26px">📂</div>
     <strong>Glisse le fichier Excel VICOV ici</strong>
     <p>ou clique pour choisir (.xlsx, .xls)</p>
-    <input type="file" id="xlsFile" accept=".xlsx,.xls" style="display:none" onchange="handleXlsFile(this.files[0])">
+    <input type="file" id="xlsFile" accept=".xlsx,.xls" style="display:none" onchange="resetImportBtn();handleXlsFile(this.files[0])">
   </div>
   <div class="ilog" id="ilog"></div>
   <div class="cmap" id="cmap">
@@ -245,7 +245,7 @@ function readImg(file,id){var r=new FileReader();r.onload=function(e){var it=cat
 function removePhoto(id){var it=catalogue.find(function(r){return r.id===id;});if(it){it.img='';save();render();}}
 
 function toggleImport(){document.getElementById('impPanel').classList.toggle('open');}
-function handleXlsDrop(e){e.preventDefault();document.getElementById('dz').classList.remove('drag');if(e.dataTransfer.files[0])handleXlsFile(e.dataTransfer.files[0]);}
+function handleXlsDrop(e){e.preventDefault();document.getElementById('dz').classList.remove('drag');if(e.dataTransfer.files[0]){resetImportBtn();handleXlsFile(e.dataTransfer.files[0]);}}
 
 var ALIASES={ref:['item no','item no.','ref','reference','sku','code'],desc:['dec','desc','description','product','libelle','name'],price:['price','prix','unit price','cost'],moq:['pcs/ctn','moq','pcs per ctn','qty/ctn','pack'],group:['ctn no','ctn no.','group','carton','lot'],cat:['category','categorie','cat'],remark:['remark','remarks','note','notes','comment'],img:['image','img','photo','url','pic']};
 function matchCol(h){var lh=h.toLowerCase().trim();for(var f in ALIASES){var als=ALIASES[f];for(var i=0;i<als.length;i++){if(lh.indexOf(als[i])!==-1||als[i].indexOf(lh)!==-1)return f;}}return null;}
@@ -253,6 +253,9 @@ function matchCol(h){var lh=h.toLowerCase().trim();for(var f in ALIASES){var als
 var pendingImageMap = {};
 var pendingUrlMap = {};
 
+function resetImportBtn(){
+
+}
 function handleXlsFile(file){
   var log=document.getElementById('ilog');log.style.display='block';log.textContent='"'+file.name+'" en cours...\n';
   pendingImageMap = {};
