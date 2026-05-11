@@ -266,6 +266,7 @@ def extract_images():
             except: pass
         result = {}      # ref -> b64
         ref_groups = {}  # ref -> group
+        ref_count = {}   # ref -> count
         for img_row, b64 in img_map.items():
             ref = row_to_ref.get(img_row)
             group = row_to_group.get(img_row)
@@ -274,10 +275,12 @@ def extract_images():
                     ref = row_to_ref.get(img_row+off)
                     group = row_to_group.get(img_row+off)
                     if ref: break
-            if ref and ref not in result:
-                result[ref] = b64
-                if group:
-                    ref_groups[ref] = group
+            if ref:
+                ref_count[ref] = ref_count.get(ref, 0) + 1
+                if ref not in result:
+                    result[ref] = b64
+                    if group:
+                        ref_groups[ref] = group
 
         # Upload to GitHub in background thread (non-blocking)
         if GITHUB_TOKEN and result:
@@ -294,18 +297,6 @@ def extract_images():
                     upload_image_to_github(file_key, b64)
             t = threading.Thread(target=upload_all, daemon=True)
             t.start()
-
-        # Build URL map based on what will be uploaded
-        # Count occurrences to detect true duplicates
-        ref_count = {}
-        for img_row2 in img_map:
-            r2 = row_to_ref.get(img_row2)
-            if not r2:
-                for off2 in range(-5, 6):
-                    r2 = row_to_ref.get(img_row2+off2)
-                    if r2: break
-            if r2:
-                ref_count[r2] = ref_count.get(r2, 0) + 1
 
         url_map = {}
         if GITHUB_TOKEN:
