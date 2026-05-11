@@ -18,8 +18,16 @@ LGREY = "F7F7F7"
 DATABASE_URL = os.environ.get('DATABASE_URL')
 
 def get_db():
-    import psycopg2
-    return psycopg2.connect(DATABASE_URL)
+    import pg8000
+    import urllib.parse
+    url = urllib.parse.urlparse(DATABASE_URL)
+    return pg8000.connect(
+        user=url.username,
+        password=url.password,
+        host=url.hostname,
+        port=url.port or 5432,
+        database=url.path.lstrip('/')
+    )
 
 def init_db():
     if not DATABASE_URL:
