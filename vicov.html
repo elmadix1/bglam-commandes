@@ -259,7 +259,6 @@ function handleXlsFile(file){
   pendingUrlMap = {};
   var btn = document.getElementById('importBtn');
   if(btn){ btn.disabled=true; btn.style.opacity='.5'; btn.style.cursor='not-allowed'; btn.textContent='⏳ Extraction en cours...'; }
-  document.getElementById('cmap').style.display='none';
 
   // 1. Extract images via backend
   var formData = new FormData();
