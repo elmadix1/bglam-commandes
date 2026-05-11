@@ -254,7 +254,7 @@ def extract_images():
                 row_to_ref[row[0].row] = ref_val
                 if group_val:
                     row_to_group[row[0].row] = group_val
-        img_map = {}
+        img_map = {}  # row -> list of b64 images
         for img in ws._images:
             try:
                 anchor = img.anchor
@@ -262,12 +262,15 @@ def extract_images():
                     r = anchor._from.row + 1
                     d = img._data()
                     if d and len(d) > 100:
-                        img_map[r] = 'data:image/png;base64,' + base64.b64encode(d).decode()
+                        b64 = 'data:image/png;base64,' + base64.b64encode(d).decode()
+                        if r not in img_map:
+                            img_map[r] = []
+                        img_map[r].append(b64)
             except: pass
         result = {}      # ref -> b64
         ref_groups = {}  # ref -> group
         ref_count = {}   # ref -> count
-        for img_row, b64 in img_map.items():
+        for img_row, b64_list in img_map.items():
             ref = row_to_ref.get(img_row)
             group = row_to_group.get(img_row)
             if not ref:
@@ -279,8 +282,10 @@ def extract_images():
                 ref_count[ref] = ref_count.get(ref, 0) + 1
                 img_key = (ref + '_' + group) if group else ref
                 if img_key not in result:
-                    result[img_key] = b64
+                    best = max(b64_list, key=len) if isinstance(b64_list, list) else b64_list
+                    result[img_key] = best
                     ref_groups[img_key] = group or ''
+
 
 
         # Upload to GitHub in background thread (non-blocking)
