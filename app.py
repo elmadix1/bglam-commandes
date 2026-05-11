@@ -81,8 +81,11 @@ def upload_image_to_github(ref, b64_data):
             with urllib.request.urlopen(req) as resp:
                 existing = json.loads(resp.read())
                 sha = existing.get('sha')
-        except urllib.error.HTTPError:
-            pass  # File doesn't exist yet
+        except urllib.error.HTTPError as he:
+            if he.code == 404:
+                pass  # File doesn't exist yet — will create
+            else:
+                pass  # Other error — try anyway
         
         # Upload file
         payload = {
@@ -103,6 +106,12 @@ def upload_image_to_github(ref, b64_data):
         with urllib.request.urlopen(req) as resp:
             result = json.loads(resp.read())
             return f"{IMAGES_BASE_URL}/{filename}"
+    except urllib.error.HTTPError as he:
+        if he.code == 409:
+            # File already exists — that's fine, return the URL
+            return f"{IMAGES_BASE_URL}/{filename}"
+        print(f"GitHub upload error for {ref}: {he}")
+        return None
     except Exception as e:
         print(f"GitHub upload error for {ref}: {e}")
         return None
