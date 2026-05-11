@@ -351,7 +351,17 @@ function runImport(){
 }
 
 function exportCat(){var blob=new Blob([JSON.stringify(catalogue,null,2)],{type:'application/json'});var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='bglam_'+SK+'_'+new Date().toISOString().slice(0,10)+'.json';a.click();toast('Backup téléchargé');}
-function clearCatalogue(){if(!confirm('Vider tout le catalogue '+SN+' ?\nCette action supprime toutes les références et photos.\n\nFais un backup avant si nécessaire !'))return;catalogue=[];qtys={};nextId=1;save();render();toast('Catalogue vidé');}
+function clearCatalogue(){
+  if(!confirm('Vider tout le catalogue '+SN+' ?\nCette action supprime toutes les références, photos et la sauvegarde PostgreSQL.\n\nImpossible à annuler !'))return;
+  catalogue=[];qtys={};nextId=1;
+  // Clear localStorage
+  try{localStorage.removeItem('bg_cat_'+SK);localStorage.removeItem('bg_qty_'+SK);}catch(e){}
+  // Clear PostgreSQL
+  fetch(BACKEND_URL+'/catalogue/'+SK+'/clear',{method:'POST'})
+    .then(function(){toast('Catalogue vidé — PostgreSQL effacé');})
+    .catch(function(){toast('Catalogue vidé localement');});
+  render();
+}
 
 function getFiltered(){
   var q=document.getElementById('srch').value.toLowerCase(),fc=document.getElementById('fCat').value,os=document.getElementById('fSel').checked;
