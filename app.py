@@ -206,13 +206,30 @@ def extract_images():
                     header_row, ref_col = i, cell.column; break
             else: continue
             break
+        # Also find group column (CTN NO)
+        group_col = None
+        GROUP_KW = ('ctn no', 'ctn no.', 'ctn no:', 'carton no', 'carton no.', 'group', 'lot')
+        for cell in ws[header_row]:
+            if cell.value and str(cell.value).strip().lower() in GROUP_KW:
+                group_col = cell.column
+                break
+
         row_to_ref = {}
+        row_to_group = {}
         for row in ws.iter_rows(min_row=header_row+1, values_only=False):
+            ref_val = None
+            group_val = None
             for cell in row:
                 if cell.column == ref_col and cell.value:
                     val = str(cell.value).strip()
                     if val.lower() not in REF_KW and val:
-                        row_to_ref[cell.row] = val; break
+                        ref_val = val
+                if group_col and cell.column == group_col and cell.value:
+                    group_val = str(cell.value).strip()
+            if ref_val:
+                row_to_ref[row[0].row] = ref_val
+                if group_val:
+                    row_to_group[row[0].row] = group_val
         img_map = {}
         for img in ws._images:
             try:
@@ -223,22 +240,29 @@ def extract_images():
                     if d and len(d) > 100:
                         img_map[r] = 'data:image/png;base64,' + base64.b64encode(d).decode()
             except: pass
-        result = {}
+        result = {}      # ref -> b64
+        ref_groups = {}  # ref -> group
         for img_row, b64 in img_map.items():
             ref = row_to_ref.get(img_row)
+            group = row_to_group.get(img_row)
             if not ref:
                 for off in range(-5, 6):
                     ref = row_to_ref.get(img_row+off)
+                    group = row_to_group.get(img_row+off)
                     if ref: break
             if ref and ref not in result:
                 result[ref] = b64
+                if group:
+                    ref_groups[ref] = group
 
         # Upload to GitHub in background thread (non-blocking)
         if GITHUB_TOKEN and result:
             import threading
             def upload_all():
                 for ref, b64 in result.items():
-                    upload_image_to_github(ref, b64)
+                    group = ref_groups.get(ref, '')
+                    file_key = ref + ('_' + group if group else '')
+                    upload_image_to_github(file_key, b64)
             t = threading.Thread(target=upload_all, daemon=True)
             t.start()
 
@@ -246,8 +270,10 @@ def extract_images():
         url_map = {}
         if GITHUB_TOKEN:
             for ref in result:
-                safe_ref = re.sub(r'[^a-zA-Z0-9_\-]', '_', ref)
-                url_map[ref] = f"{IMAGES_BASE_URL}/{safe_ref}.jpg"
+                group = ref_groups.get(ref, '')
+                file_key = ref + ('_' + group if group else '')
+                safe_key = re.sub(r'[^a-zA-Z0-9_-]', '_', file_key)
+                url_map[ref] = f"{IMAGES_BASE_URL}/{safe_key}.jpg"
 
         return jsonify({
             "images": result,
