@@ -84,8 +84,10 @@ def upload_image_to_github(ref, b64_data):
         except urllib.error.HTTPError as he:
             if he.code == 404:
                 pass  # File doesn't exist yet — will create
+            elif he.code == 422:
+                pass  # Unprocessable — try anyway
             else:
-                pass  # Other error — try anyway
+                pass  # Other error
         
         # Upload file
         payload = {
@@ -108,7 +110,28 @@ def upload_image_to_github(ref, b64_data):
             return f"{IMAGES_BASE_URL}/{filename}"
     except urllib.error.HTTPError as he:
         if he.code == 409:
-            # File already exists — that's fine, return the URL
+            # Conflict — try to get SHA and force update
+            try:
+                req2 = urllib.request.Request(api_url, headers={
+                    'Authorization': f'token {GITHUB_TOKEN}',
+                    'Accept': 'application/vnd.github.v3+json'
+                })
+                with urllib.request.urlopen(req2) as resp2:
+                    existing2 = json.loads(resp2.read())
+                    sha2 = existing2.get('sha')
+                if sha2:
+                    payload['sha'] = sha2
+                    payload['message'] = f'Update image {filename}'
+                    data2 = json.dumps(payload).encode('utf-8')
+                    req3 = urllib.request.Request(api_url, data=data2, method='PUT', headers={
+                        'Authorization': f'token {GITHUB_TOKEN}',
+                        'Accept': 'application/vnd.github.v3+json',
+                        'Content-Type': 'application/json'
+                    })
+                    with urllib.request.urlopen(req3) as resp3:
+                        json.loads(resp3.read())
+            except Exception:
+                pass
             return f"{IMAGES_BASE_URL}/{filename}"
         print(f"GitHub upload error for {ref}: {he}")
         return None
