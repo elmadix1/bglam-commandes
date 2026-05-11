@@ -16,6 +16,10 @@ WHITE = "FFFFFF"
 LGREY = "F7F7F7"
 
 DATABASE_URL = os.environ.get('DATABASE_URL')
+GITHUB_TOKEN = os.environ.get('GITHUB_TOKEN')
+GITHUB_REPO  = 'elmadix1/bglam-commandes'
+GITHUB_BRANCH = 'main'
+IMAGES_BASE_URL = 'https://elmadix1.github.io/bglam-commandes/images'
 
 def get_db():
     import pg8000
@@ -50,6 +54,58 @@ def init_db():
         print(f"DB init error: {e}")
 
 init_db()
+
+def upload_image_to_github(ref, b64_data):
+    """Upload a base64 image to GitHub repo and return its URL."""
+    if not GITHUB_TOKEN:
+        return None
+    try:
+        import urllib.request, urllib.error
+        # Strip data URI prefix if present
+        if b64_data.startswith('data:'):
+            b64_data = b64_data.split(',', 1)[1]
+        
+        # Determine filename - use ref as filename
+        safe_ref = re.sub(r'[^a-zA-Z0-9_\-]', '_', ref)
+        filename = f"{safe_ref}.jpg"
+        path = f"images/{filename}"
+        api_url = f"https://api.github.com/repos/{GITHUB_REPO}/contents/{path}"
+        
+        # Check if file already exists (to get SHA for update)
+        sha = None
+        try:
+            req = urllib.request.Request(api_url, headers={
+                'Authorization': f'token {GITHUB_TOKEN}',
+                'Accept': 'application/vnd.github.v3+json'
+            })
+            with urllib.request.urlopen(req) as resp:
+                existing = json.loads(resp.read())
+                sha = existing.get('sha')
+        except urllib.error.HTTPError:
+            pass  # File doesn't exist yet
+        
+        # Upload file
+        payload = {
+            'message': f'Add image {filename}',
+            'content': b64_data,
+            'branch': GITHUB_BRANCH
+        }
+        if sha:
+            payload['sha'] = sha
+            payload['message'] = f'Update image {filename}'
+        
+        data = json.dumps(payload).encode('utf-8')
+        req = urllib.request.Request(api_url, data=data, method='PUT', headers={
+            'Authorization': f'token {GITHUB_TOKEN}',
+            'Accept': 'application/vnd.github.v3+json',
+            'Content-Type': 'application/json'
+        })
+        with urllib.request.urlopen(req) as resp:
+            result = json.loads(resp.read())
+            return f"{IMAGES_BASE_URL}/{filename}"
+    except Exception as e:
+        print(f"GitHub upload error for {ref}: {e}")
+        return None
 
 def hex_fill(h): return PatternFill("solid", fgColor=h)
 def thin_border():
@@ -159,15 +215,28 @@ def extract_images():
                         img_map[r] = 'data:image/png;base64,' + base64.b64encode(d).decode()
             except: pass
         result = {}
+        url_map = {}  # ref -> github URL
         for img_row, b64 in img_map.items():
             ref = row_to_ref.get(img_row)
             if not ref:
                 for off in range(-5, 6):
                     ref = row_to_ref.get(img_row+off)
                     if ref: break
-            if ref and ref not in result: result[ref] = b64
-        return jsonify({"images": result, "matched": len(result),
-                        "total_images": len(img_map), "total_refs": len(row_to_ref)})
+            if ref and ref not in result:
+                result[ref] = b64
+                # Upload to GitHub if token available
+                if GITHUB_TOKEN:
+                    url = upload_image_to_github(ref, b64)
+                    if url:
+                        url_map[ref] = url
+
+        return jsonify({
+            "images": result,
+            "urls": url_map,  # GitHub URLs for permanent storage
+            "matched": len(result),
+            "total_images": len(img_map),
+            "total_refs": len(row_to_ref)
+        })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

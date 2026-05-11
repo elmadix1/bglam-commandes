@@ -250,6 +250,7 @@ var ALIASES={ref:['item no','item no.','ref','reference','sku','code'],desc:['de
 function matchCol(h){var lh=h.toLowerCase().trim();for(var f in ALIASES){var als=ALIASES[f];for(var i=0;i<als.length;i++){if(lh.indexOf(als[i])!==-1||als[i].indexOf(lh)!==-1)return f;}}return null;}
 
 var pendingImageMap = {};
+var pendingUrlMap = {};
 
 function handleXlsFile(file){
   var log=document.getElementById('ilog');log.style.display='block';log.textContent='"'+file.name+'" en cours...\n';
@@ -264,7 +265,11 @@ function handleXlsFile(file){
     .then(function(data){
       if(data.images){
         pendingImageMap = data.images;
-        log.textContent += '✓ '+data.matched+' photos extraites sur '+data.total_refs+' références\n';
+        pendingUrlMap = data.urls || {};
+        var githubCount = Object.keys(pendingUrlMap).length;
+        log.textContent += '✓ '+data.matched+' photos extraites sur '+data.total_refs+' références';
+        if(githubCount > 0) log.textContent += ' · '+githubCount+' uploadées sur GitHub';
+        log.textContent += '\n';
       }
     })
     .catch(function(){ log.textContent += '⚠️ Photos non extraites (backend indisponible)\n'; })
@@ -327,12 +332,14 @@ function runImport(){
       if(desc&&ex.desc!==desc){ex.desc=desc;ch=true;}
       if(cat&&!ex.cat){ex.cat=cat;ch=true;}
       if(remark&&!ex.remark){ex.remark=remark;ch=true;}
-      if(img&&!ex.img){ex.img=img;ch=true;}
-      // Also apply extracted image from backend if available
-      if(pendingImageMap[ref]&&!ex.img){ex.img=pendingImageMap[ref];ch=true;}
+      // Use GitHub URL if available, otherwise base64
+      var githubUrl = pendingUrlMap[ref] || '';
+      var imgData = githubUrl || pendingImageMap[ref] || '';
+      if(imgData&&!ex.img){ex.img=imgData;ch=true;}
       ch?updated++:skipped++;
     }else{
-      catalogue.push({id:nextId++,group:group,ref:ref,desc:desc||ref,cat:cat||'Non classé',price:price,moq:moq,remark:remark,img:pendingImageMap[ref]||''});
+      var githubUrl2 = pendingUrlMap[ref] || '';
+      catalogue.push({id:nextId++,group:group,ref:ref,desc:desc||ref,cat:cat||'Non classé',price:price,moq:moq,remark:remark,img:githubUrl2||pendingImageMap[ref]||''});
       added++;
     }
   });
