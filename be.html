@@ -145,6 +145,7 @@ tr.hq:hover td{background:#d5f5e8}
   <div class="sep"></div>
   <button class="btn by" style="font-size:11px;padding:5px 10px" onclick="toggleAdd()">+ Produit</button>
   <button class="btn bk" style="font-size:11px;padding:5px 10px" onclick="exportCat()">💾 Backup</button>
+  <button class="btn bdel" style="font-size:11px;padding:5px 10px" onclick="clearCatalogue()">🗑 Vider catalogue</button>
 </div>
 <div class="add-panel" id="addPanel">
   <div class="af"><label>Réf *</label><input id="nRef" placeholder="BA-XXX"></div>
@@ -307,6 +308,7 @@ function runImport(){
 }
 
 function exportCat(){var blob=new Blob([JSON.stringify(catalogue,null,2)],{type:'application/json'});var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='bglam_'+SK+'_'+new Date().toISOString().slice(0,10)+'.json';a.click();toast('Backup téléchargé');}
+function clearCatalogue(){if(!confirm('Vider tout le catalogue '+SN+' ?\nCette action supprime toutes les références et photos.\n\nFais un backup avant si nécessaire !'))return;catalogue=[];qtys={};nextId=1;save();render();toast('Catalogue vidé');}
 
 function getFiltered(){
   var q=document.getElementById('srch').value.toLowerCase(),fc=document.getElementById('fCat').value,os=document.getElementById('fSel').checked;
