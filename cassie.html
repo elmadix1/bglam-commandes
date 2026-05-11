@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BGlam · BAVA-Cassie</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Arial,sans-serif;font-size:13px;background:#f0f0f0;color:#222}
+header{background:#1a1a2e;color:#fff;padding:11px 18px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.hback{color:#fff;text-decoration:none;font-size:20px;opacity:.6;transition:opacity .15s}.hback:hover{opacity:1}
+.hname{font-size:16px;font-weight:700}
+.hbadge{font-size:11px;padding:3px 10px;border-radius:10px;font-weight:700;background:#fce7f3;color:#9d174d}
+.hr{display:flex;align-items:center;gap:7px;margin-left:auto;flex-wrap:wrap}
+#orderName{background:#2a2a4e;border:1px solid #444;color:#fff;padding:5px 9px;border-radius:4px;font-size:12px;width:190px}
+.btn{padding:6px 12px;border-radius:4px;border:none;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap}
+.btn:hover{opacity:.85}
+.bg{background:#1D9E75;color:#fff}.bb{background:#1a6eb5;color:#fff}
+.by{background:#e6c200;color:#333}.bk{background:#555;color:#fff}
+.bpr{background:#7c3aed;color:#fff}
+.bsm{padding:3px 8px;font-size:11px;font-weight:600;border-radius:3px;border:1px solid #ccc;cursor:pointer;background:#fff}
+.bdel{background:#fff0f0;color:#c00;border-color:#fcc}
+.summary{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:10px 18px;background:#fff;border-bottom:1px solid #ddd}
+.metric{background:#f7f7f7;border:1px solid #e8e8e8;border-radius:5px;padding:8px 12px}
+.ml{font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.3px;margin-bottom:2px}
+.mv{font-size:20px;font-weight:700}.mv.green{color:#0F6E56}
+.imp-panel{display:none;background:#eaf4ff;border-bottom:2px solid #1a6eb5;padding:12px 18px}
+.imp-panel.open{display:block}
+.dz{border:2px dashed #1a6eb5;border-radius:6px;padding:18px;text-align:center;cursor:pointer;background:#fff;transition:background .15s}
+.dz:hover,.dz.drag{background:#dceeff}
+.dz p{color:#666;font-size:12px;margin:4px 0 0}
+.ilog{margin-top:7px;font-size:11px;background:#fff;border:1px solid #b8d8f8;border-radius:4px;padding:8px;max-height:90px;overflow-y:auto;white-space:pre-wrap;display:none}
+.cmap{display:none;margin-top:10px;background:#fff;border:1px solid #ccc;border-radius:4px;padding:10px}
+.cmap h3{font-size:12px;font-weight:700;margin-bottom:7px}
+.cmg{display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:7px}
+.cmf{display:flex;flex-direction:column;gap:2px}
+.cmf label{font-size:10px;font-weight:700;text-transform:uppercase;color:#666}
+.cmf select{padding:3px 6px;border:1px solid #ccc;border-radius:3px;font-size:11px}
+.ires{font-size:12px;color:#0F6E56;font-weight:700;margin-left:10px}
+.ihint{margin-top:8px;font-size:11px;color:#666;line-height:1.6}
+.tb{padding:8px 18px;background:#fff;border-bottom:1px solid #ddd;display:flex;gap:7px;align-items:center;flex-wrap:wrap}
+.tb input[type=text]{padding:5px 9px;border:1px solid #ccc;border-radius:4px;font-size:12px;width:200px}
+.tb select{padding:5px 7px;border:1px solid #ccc;border-radius:4px;font-size:12px}
+.tb label{font-size:12px;display:flex;align-items:center;gap:4px;cursor:pointer;white-space:nowrap}
+.sep{width:1px;background:#ddd;height:20px;margin:0 2px}
+.add-panel{display:none;background:#fffbea;border-bottom:1px solid #e8d800;padding:9px 18px}
+.add-panel.open{display:flex;gap:7px;flex-wrap:wrap;align-items:flex-end}
+.af{display:flex;flex-direction:column;gap:2px;min-width:85px;flex:1}
+.af label{font-size:10px;font-weight:700;text-transform:uppercase;color:#666}
+.af input,.af select{padding:4px 7px;border:1px solid #ccc;border-radius:3px;font-size:12px}
+.tabs{display:flex;gap:2px;padding:7px 18px 0;background:#fff;overflow-x:auto;border-bottom:1px solid #ddd;scrollbar-width:thin}
+.tab{padding:5px 11px;border-radius:4px 4px 0 0;border:1px solid #ddd;border-bottom:none;font-size:11px;cursor:pointer;background:#efefef;white-space:nowrap;color:#555;font-weight:600}
+.tab.active{background:#1a1a2e;color:#fff;border-color:#1a1a2e}
+.tw{overflow-x:auto;padding:0 18px 24px}
+table{width:100%;border-collapse:collapse;margin-top:9px;background:#fff;border-radius:6px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+th{background:#1a1a2e;color:#fff;padding:8px 9px;text-align:left;font-size:11px;font-weight:700;white-space:nowrap;cursor:pointer;user-select:none}
+th:hover{background:#2a2a4e}
+td{padding:6px 9px;border-bottom:1px solid #f0f0f0;vertical-align:middle}
+tr:hover td{background:#f9f9f9}
+tr.hq td{background:#edfcf5}
+tr.hq:hover td{background:#d5f5e8}
+.rc{font-weight:700;color:#1a1a2e;font-size:12px}
+.gb{display:inline-block;font-size:10px;padding:1px 5px;border-radius:3px;background:#e8e8ff;color:#334;font-weight:600}
+.rmcell{font-size:11px;color:#888;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.qi{width:60px;text-align:center;padding:4px;border:1px solid #ccc;border-radius:3px;font-size:12px}
+.qi:focus{outline:none;border-color:#1D9E75;box-shadow:0 0 0 2px #1D9E7530}
+.sub{font-weight:700;color:#0F6E56}
+.nop{color:#bbb;font-style:italic;font-size:11px}
+.trow td{background:#1a1a2e!important;color:#fff;font-weight:700}
+.trow .ta{color:#4ade80;font-size:14px}
+.emsg{text-align:center;padding:40px;color:#aaa;font-size:14px;display:none}
+.photo-cell{position:relative;width:52px}
+.photo-cell img{width:48px;height:48px;object-fit:cover;border-radius:4px;border:1px solid #ddd;cursor:zoom-in;display:block}
+.photo-drop{width:48px;height:48px;border:1.5px dashed #ccc;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:20px;color:#ccc;cursor:pointer;background:#fafafa;transition:border-color .15s,background .15s;position:relative}
+.photo-drop:hover,.photo-drop.dragover{border-color:#1D9E75;background:#edfcf5;color:#1D9E75}
+.photo-drop input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.photo-drop span{pointer-events:none;font-size:18px}
+.photo-rm{position:absolute;top:-5px;right:-5px;width:16px;height:16px;border-radius:50%;background:#c00;color:#fff;border:none;font-size:10px;cursor:pointer;display:none;align-items:center;justify-content:center;line-height:1}
+.photo-cell:hover .photo-rm{display:flex}
+.ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:999;align-items:center;justify-content:center}
+.ov.open{display:flex}
+.mod{background:#fff;border-radius:8px;padding:18px;max-width:460px;width:90%;position:relative}
+.mcls{position:absolute;top:10px;right:14px;font-size:20px;cursor:pointer;color:#999;line-height:1}
+.mcls:hover{color:#333}
+.print-ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:1000;overflow-y:auto}
+.print-ov.open{display:block}
+.print-box{background:#fff;margin:30px auto;max-width:860px;border-radius:8px;overflow:hidden}
+.print-tb{background:#1a1a2e;color:#fff;padding:10px 18px;display:flex;gap:8px;align-items:center}
+.print-tb span{flex:1;font-size:14px;font-weight:700}
+.print-content{padding:24px}
+.toast{position:fixed;bottom:20px;right:20px;background:#1a1a2e;color:#fff;padding:9px 16px;border-radius:6px;font-size:12px;opacity:0;transition:opacity .25s;pointer-events:none;z-index:9999}
+.toast.show{opacity:1}
+@media print{body>*:not(.print-ov){display:none!important}.print-ov{display:block!important;position:static;background:#fff}.print-tb{display:none!important}.print-box{margin:0;border-radius:0}}
+@media(max-width:680px){.summary{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<header>
+  <a class="hback" href="index.html" title="Tableau de bord">←</a>
+  <div style="font-size:22px">✨</div>
+  <div>
+    <div class="hname">BAVA-Cassie</div>
+    <div style="font-size:11px;color:#888;margin-top:1px" id="catalogCount">0 références</div>
+  </div>
+  <span class="hbadge">#9d174d</span>
+  <div class="hr">
+    <input id="orderName" type="text" placeholder="Nom commande...">
+    <button class="btn by" onclick="toggleImport()">📥 Importer Excel</button>
+    <button class="btn bk" onclick="resetQty()">↺ Réinit.</button>
+    <button class="btn bpr" onclick="showPrint()">🖨 Aperçu</button>
+    <button class="btn bg" onclick="exportXLS()">⬇ Excel</button>
+  </div>
+</header>
+<div class="summary">
+  <div class="metric"><div class="ml">Refs sélectionnées</div><div class="mv" id="metCount">0</div></div>
+  <div class="metric"><div class="ml">Quantité totale</div><div class="mv" id="metQty">0</div></div>
+  <div class="metric"><div class="ml">Total commande</div><div class="mv green" id="metTotal">$0.00</div></div>
+  <div class="metric"><div class="ml">Catalogue</div><div class="mv" id="metCat">0</div></div>
+</div>
+<div class="imp-panel" id="impPanel">
+  <div style="font-size:13px;font-weight:700;color:#1a6eb5;margin-bottom:8px">📥 Importer / Mettre à jour le catalogue BAVA-Cassie</div>
+  <div class="dz" id="dz" onclick="document.getElementById('xlsFile').click()"
+    ondragover="event.preventDefault();this.classList.add('drag')"
+    ondragleave="this.classList.remove('drag')"
+    ondrop="handleXlsDrop(event)">
+    <div style="font-size:26px">📂</div>
+    <strong>Glisse le fichier Excel BAVA-Cassie ici</strong>
+    <p>ou clique pour choisir (.xlsx, .xls)</p>
+    <input type="file" id="xlsFile" accept=".xlsx,.xls" style="display:none" onchange="handleXlsFile(this.files[0])">
+  </div>
+  <div class="ilog" id="ilog"></div>
+  <div class="cmap" id="cmap">
+    <h3>🔗 Association des colonnes</h3>
+    <div class="cmg" id="cmg"></div>
+    <div style="display:flex;align-items:center;margin-top:10px;gap:8px">
+      <button class="btn bb" onclick="runImport()">✓ Importer et fusionner</button>
+      <span class="ires" id="ires"></span>
+    </div>
+  </div>
+  <div class="ihint">Colonnes reconnues : ITEM NO · DEC · PRICE · PCS/CTN · CTN NO · REMARK · URL image<br>Nouvelles refs → ajoutées · Prix/MOQ → mis à jour · Photos → jamais écrasées</div>
+</div>
+<div class="tb">
+  <input type="text" id="srch" placeholder="🔍 Réf, description, remarque..." oninput="render()">
+  <select id="fCat" onchange="render()"><option value="">Toutes catégories</option></select>
+  <div class="sep"></div>
+  <label><input type="checkbox" id="fSel" onchange="render()"> Sélectionnés</label>
+  <div class="sep"></div>
+  <button class="btn by" style="font-size:11px;padding:5px 10px" onclick="toggleAdd()">+ Produit</button>
+  <button class="btn bk" style="font-size:11px;padding:5px 10px" onclick="exportCat()">💾 Backup</button>
+</div>
+<div class="add-panel" id="addPanel">
+  <div class="af"><label>Réf *</label><input id="nRef" placeholder="BA-XXX"></div>
+  <div class="af"><label>Description *</label><input id="nDesc" placeholder="nail tips"></div>
+  <div class="af"><label>Catégorie</label>
+    <select id="nCat"><option value="Non classé">Non classé</option><option value="Onglerie">Onglerie</option><option value="Extensions de cils">Extensions de cils</option><option value="Accessoires pour cils">Accessoires pour cils</option><option value="Cheveux">Cheveux</option><option value="Soins de la peau et des pieds">Soins de la peau et des pieds</option><option value="Cosmétiques">Cosmétiques</option><option value="Soins personnels">Soins personnels</option><option value="Parfum">Parfum</option><option value="Chauffe-cire">Chauffe-cire</option><option value="Machines">Machines</option><option value="Massage">Massage</option><option value="Ameublement">Ameublement</option><option value="Rangement et organisateurs">Rangement et organisateurs</option><option value="Salon de Coiffure et Barbier">Salon de Coiffure et Barbier</option><option value="Salon Accessories">Salon Accessories</option><option value="Nouveauté">Nouveauté</option><option value="Offre">Offre</option></select>
+  </div>
+  <div class="af"><label>Groupe CTN</label><input id="nGroup" placeholder="1#"></div>
+  <div class="af"><label>Prix ($)</label><input id="nPrice" type="number" step="0.001" placeholder="1.18"></div>
+  <div class="af"><label>MOQ</label><input id="nMoq" type="number" placeholder="25"></div>
+  <div class="af"><label>Remarque</label><input id="nRemark" placeholder="couleurs..."></div>
+  <button class="btn bg" onclick="addRow()" style="align-self:flex-end">✓ Ajouter</button>
+  <button class="btn bk" onclick="toggleAdd()" style="align-self:flex-end">Annuler</button>
+</div>
+<div class="tabs" id="tabs"></div>
+<div class="tw">
+  <table id="mainTbl" style="display:none">
+    <thead><tr>
+      <th style="width:26px">#</th>
+      <th style="width:56px">Photo</th>
+      <th onclick="sortBy('ref')">Réf ↕</th>
+      <th onclick="sortBy('desc')">Description ↕</th>
+      <th onclick="sortBy('cat')">Catégorie ↕</th>
+      <th onclick="sortBy('group')">Groupe ↕</th>
+      <th onclick="sortBy('price')" style="text-align:right">Prix ↕</th>
+      <th style="text-align:right">MOQ</th>
+      <th>Remarque</th>
+      <th style="text-align:center;width:68px">Qté</th>
+      <th style="text-align:right;width:86px">Sous-total</th>
+      <th style="width:26px"></th>
+    </tr></thead>
+    <tbody id="tbody"></tbody>
+  </table>
+  <div class="emsg" id="emsg">Catalogue vide — importe un fichier Excel ou ajoute des produits manuellement.</div>
+</div>
+<div class="ov" id="photoOv" onclick="closeMod()">
+  <div class="mod" onclick="event.stopPropagation()">
+    <span class="mcls" onclick="closeMod()">✕</span>
+    <div id="modBody"></div>
+  </div>
+</div>
+<div class="print-ov" id="printOv">
+  <div class="print-box">
+    <div class="print-tb">
+      <span id="printTitle">Aperçu commande</span>
+      <button class="btn bg" onclick="window.print()">🖨 Imprimer / PDF</button>
+      <button class="btn bk" onclick="document.getElementById('printOv').classList.remove('open')">✕</button>
+    </div>
+    <div class="print-content" id="printContent"></div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+const SUPPLIER_KEY = 'cassie';
+const SUPPLIER_NAME = 'BAVA-Cassie';
+const CATS = ['Onglerie','Extensions de cils','Accessoires pour cils','Cheveux','Soins de la peau et des pieds','Cosmétiques','Soins personnels','Parfum','Chauffe-cire','Machines','Massage','Ameublement','Rangement et organisateurs','Salon de Coiffure et Barbier','Salon Accessories','Nouveauté','Offre','Non classé'];
+let catalogue = [];
+let qtys={}, nextId=1, activeTab='all', sortKey=null, sortAsc=true;
+let parsedRows=[], parsedHeaders=[];
+
+function save(){try{localStorage.setItem('bg_cat_'+SUPPLIER_KEY,JSON.stringify(catalogue));localStorage.setItem('bg_qty_'+SUPPLIER_KEY,JSON.stringify(qtys));}catch(e){}}
+function loadSaved(){
+  try{
+    const c=localStorage.getItem('bg_cat_'+SUPPLIER_KEY),q=localStorage.getItem('bg_qty_'+SUPPLIER_KEY);
+    if(c){catalogue=JSON.parse(c);nextId=Math.max(...catalogue.map(r=>r.id),1-1)+1;}
+    if(q)qtys=JSON.parse(q);
+  }catch(e){}
+}
+
+function handlePhotoDrop(e,id){e.preventDefault();e.currentTarget.classList.remove('dragover');const f=e.dataTransfer?.files?.[0]||e.target?.files?.[0];if(f&&f.type.startsWith('image/'))readImg(f,id);}
+function handlePhotoFile(inp,id){if(inp.files[0])readImg(inp.files[0],id);}
+function readImg(file,id){const r=new FileReader();r.onload=e=>{const it=catalogue.find(r=>r.id===id);if(it){it.img=e.target.result;save();render();toast('Photo ajoutée — '+it.ref);}};r.readAsDataURL(file);}
+function removePhoto(id){const it=catalogue.find(r=>r.id===id);if(it){it.img='';save();render();}}
+
+function toggleImport(){document.getElementById('impPanel').classList.toggle('open');}
+function handleXlsDrop(e){e.preventDefault();document.getElementById('dz').classList.remove('drag');if(e.dataTransfer.files[0])handleXlsFile(e.dataTransfer.files[0]);}
+const ALIASES={ref:['item no','item no.','ref','reference','sku','code'],desc:['dec','desc','description','product','libelle','name'],price:['price','prix','unit price','cout','cost'],moq:['pcs/ctn','moq','pcs per ctn','qty/ctn','pack'],group:['ctn no','ctn no.','group','carton','lot'],cat:['category','categorie','cat'],remark:['remark','remarks','note','notes','comment'],img:['image','img','photo','url','pic']};
+function matchCol(h){const lh=h.toLowerCase().trim();for(const[f,als]of Object.entries(ALIASES)){if(als.some(a=>lh.includes(a)||a.includes(lh)))return f;}return null;}
+function handleXlsFile(file){
+  const log=document.getElementById('ilog');log.style.display='block';log.textContent=`"${file.name}" en cours...\n`;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const wb=XLSX.read(e.target.result,{type:'array'});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const data=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+      let hr=-1;for(let i=0;i<Math.min(10,data.length);i++){if(data[i].filter(c=>String(c).trim()!=='').length>=3){hr=i;break;}}
+      if(hr<0){log.textContent+='❌ En-tête introuvable.\n';return;}
+      parsedHeaders=data[hr].map(h=>String(h).trim());
+      parsedRows=data.slice(hr+1).filter(r=>r.some(c=>String(c).trim()!==''));
+      log.textContent+=`✓ ${parsedRows.length} lignes · Colonnes : ${parsedHeaders.filter(h=>h).join(' | ')}\n`;
+      const am={};parsedHeaders.forEach((h,i)=>{const f=matchCol(h);if(f&&am[f]===undefined)am[f]=i;});
+      log.textContent+=`✓ Mapping : ${Object.entries(am).map(([k,v])=>`${k}→"${parsedHeaders[v]}"`).join(', ')}\n`;
+      buildMapper(am);
+    }catch(err){log.textContent+=`❌ ${err.message}\n`;}
+  };
+  reader.readAsArrayBuffer(file);
+}
+function buildMapper(am){
+  const g=document.getElementById('cmg');
+  const fields=[{key:'ref',label:'Référence *'},{key:'desc',label:'Description'},{key:'price',label:'Prix ($)'},{key:'moq',label:'MOQ/PCS'},{key:'group',label:'Groupe CTN'},{key:'cat',label:'Catégorie'},{key:'remark',label:'Remarque'},{key:'img',label:'URL Photo'}];
+  const opts=['— ignorer —',...parsedHeaders.map((h,i)=>`${i+1}. ${h}`)];
+  g.innerHTML=fields.map(f=>{const sel=opts.map((o,oi)=>{const ci=oi-1;return`<option value="${ci}"${am[f.key]===ci?' selected':''}>{o}</option>`;},'').join('');return`<div class="cmf"><label>${f.label}</label><select id="cm_${f.key}">${sel}</select></div>`;}).join('');
+  document.getElementById('cmap').style.display='block';document.getElementById('ires').textContent='';
+}
+function buildMapper(am){
+  const g=document.getElementById('cmg');
+  const fields=[{key:'ref',label:'Référence *'},{key:'desc',label:'Description'},{key:'price',label:'Prix ($)'},{key:'moq',label:'MOQ/PCS'},{key:'group',label:'Groupe CTN'},{key:'cat',label:'Catégorie'},{key:'remark',label:'Remarque'},{key:'img',label:'URL Photo'}];
+  const opts=['— ignorer —',...parsedHeaders.map((h,i)=>i+1+'. '+h)];
+  g.innerHTML=fields.map(f=>{
+    const sel=opts.map((o,oi)=>{const ci=oi-1;return'<option value="'+ci+'"'+(am[f.key]===ci?' selected':'')+'>'+o+'</option>';}).join('');
+    return'<div class="cmf"><label>'+f.label+'</label><select id="cm_'+f.key+'">'+sel+'</select></div>';
+  }).join('');
+  document.getElementById('cmap').style.display='block';document.getElementById('ires').textContent='';
+}
+function runImport(){
+  const gc=k=>parseInt(document.getElementById('cm_'+k).value);
+  const rC=gc('ref'),dC=gc('desc'),pC=gc('price'),mC=gc('moq'),gC=gc('group'),cC=gc('cat'),rkC=gc('remark'),iC=gc('img');
+  if(rC<0){alert('Colonne Référence obligatoire.');return;}
+  let added=0,updated=0,skipped=0;
+  parsedRows.forEach(row=>{
+    const ref=String(row[rC]||'').trim();
+    if(!ref||/item.?no/i.test(ref))return;
+    const desc=dC>=0?String(row[dC]||'').trim():'';
+    const price=pC>=0&&row[pC]!==''?parseFloat(String(row[pC]).replace(',','.'))||null:null;
+    const moq=mC>=0&&row[mC]!==''?parseInt(row[mC])||null:null;
+    const group=gC>=0?String(row[gC]||'').trim():'';
+    const cat=cC>=0?String(row[cC]||'').trim():'';
+    const remark=rkC>=0?String(row[rkC]||'').trim():'';
+    const img=iC>=0?String(row[iC]||'').trim():'';
+    const ex=catalogue.find(c=>c.ref===ref);
+    if(ex){let ch=false;if(price!==null&&ex.price!==price){ex.price=price;ch=true;}if(moq!==null&&ex.moq!==moq){ex.moq=moq;ch=true;}if(group&&ex.group!==group){ex.group=group;ch=true;}if(desc&&ex.desc!==desc){ex.desc=desc;ch=true;}if(cat&&!ex.cat){ex.cat=cat;ch=true;}if(remark&&!ex.remark){ex.remark=remark;ch=true;}if(img&&!ex.img){ex.img=img;ch=true;}ch?updated++:skipped++;}
+    else{catalogue.push({id:nextId++,group,ref,desc:desc||ref,cat:cat||'Non classé',price,moq,remark,img:''});added++;}
+  });
+  save();render();
+  const msg='✅ '+added+' ajoutés · '+updated+' mis à jour · '+skipped+' inchangés';
+  document.getElementById('ires').textContent=msg;document.getElementById('ilog').textContent+=msg+'\n';toast(msg);
+}
+function exportCat(){const blob=new Blob([JSON.stringify(catalogue,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='bglam_'+SUPPLIER_KEY+'_'+new Date().toISOString().slice(0,10)+'.json';a.click();toast('Backup téléchargé');}
+
+function getFiltered(){
+  const q=document.getElementById('srch').value.toLowerCase(),fc=document.getElementById('fCat').value,os=document.getElementById('fSel').checked;
+  let rows=catalogue.filter(r=>{
+    if(activeTab!=='all'&&(r.cat||'Non classé')!==activeTab)return false;
+    if(fc&&(r.cat||'Non classé')!==fc)return false;
+    if(os&&!(qtys[r.id]>0))return false;
+    if(q&&![(r.ref||''),(r.desc||''),(r.remark||''),(r.group||''),(r.cat||'')].some(s=>s.toLowerCase().includes(q)))return false;
+    return true;
+  });
+  if(sortKey)rows=rows.sort((a,b)=>{const av=a[sortKey]??'',bv=b[sortKey]??'';return typeof av==='number'?(sortAsc?av-bv:bv-av):(sortAsc?String(av).localeCompare(String(bv)):String(bv).localeCompare(String(av)));}); 
+  return rows;
+}
+function sortBy(k){sortKey===k?sortAsc=!sortAsc:(sortKey=k,sortAsc=true);render();}
+function renderTabs(){
+  const usedCats=['all',...CATS.filter(c=>catalogue.some(r=>(r.cat||'Non classé')===c))];
+  document.getElementById('tabs').innerHTML=usedCats.map(c=>{
+    const lbl=c==='all'?'Tous':c,cnt=c==='all'?catalogue.length:catalogue.filter(r=>(r.cat||'Non classé')===c).length;
+    const sc=c==='all'?catalogue.filter(r=>qtys[r.id]>0).length:catalogue.filter(r=>(r.cat||'Non classé')===c&&qtys[r.id]>0).length;
+    return'<div class="tab'+(activeTab===c?' active':'')+'" onclick="setTab('+JSON.stringify(c)+')">'+lbl+' <span style="opacity:.5;font-size:10px">'+cnt+'</span>'+(sc?'<span style="color:#4ade80;font-size:10px">●'+sc+'</span>':'')+'</div>';
+  }).join('');
+}
+function setTab(t){activeTab=t;render();}
+function catSelectHtml(id,current){
+  const opts=CATS.map(c=>'<option value="'+c+'"'+(c===current?' selected':'')+'>'+c+'</option>').join('');
+  return'<select style="font-size:11px;border:1px solid #ddd;border-radius:3px;padding:2px 4px;max-width:155px" onchange="setCat('+id+',this.value)">'+opts+'</select>';
+}
+function setCat(id,val){const it=catalogue.find(r=>r.id===id);if(it){it.cat=val;save();render();}}
+function render(){
+  renderTabs();
+  const rows=getFiltered();
+  const fc=document.getElementById('fCat'),cur=fc.value;
+  const usedCats=[...new Set(catalogue.map(r=>r.cat||'Non classé'))].sort();
+  fc.innerHTML='<option value="">Toutes catégories</option>'+usedCats.map(c=>'<option value="'+c+'"'+(cur===c?' selected':'')+'>'+c+'</option>').join('');
+  const tbody=document.getElementById('tbody'),emsg=document.getElementById('emsg'),tbl=document.getElementById('mainTbl');
+  if(!rows.length){tbody.innerHTML='';emsg.style.display='block';tbl.style.display='none';return;}
+  emsg.style.display='none';tbl.style.display='';
+  tbody.innerHTML=rows.map((r,i)=>{
+    const qty=qtys[r.id]||0,sub=r.price!=null&&qty>0?qty*r.price:null;
+    const photoHtml=r.img
+      ?'<div class="photo-cell"><img src="'+r.img+'" alt="'+r.ref+'" onclick="zoomImg('+JSON.stringify(r.img)+','+JSON.stringify(r.ref)+')"><button class="photo-rm" onclick="removePhoto('+r.id+')">✕</button></div>'
+      :'<div class="photo-drop" ondragover="event.preventDefault();this.classList.add('dragover')" ondragleave="this.classList.remove('dragover')" ondrop="handlePhotoDrop(event,'+r.id+')"><input type="file" accept="image/*" onchange="handlePhotoFile(this,'+r.id+')"><span>+</span></div>';
+    return'<tr class="'+(qty>0?'hq':'')+'"><td style="color:#aaa;font-size:10px">'+(i+1)+'</td><td>'+photoHtml+'</td><td class="rc">'+r.ref+'</td><td>'+(r.desc||'—')+'</td><td>'+catSelectHtml(r.id,r.cat||'Non classé')+'</td><td><span class="gb">'+(r.group||'—')+'</span></td><td style="text-align:right;white-space:nowrap">'+(r.price!=null?'$'+r.price.toFixed(3):'<span class="nop">—</span>')+'</td><td style="text-align:right;color:#888">'+(r.moq!=null?r.moq:'—')+'</td><td class="rmcell" title="'+(r.remark||'')+'">'+(r.remark||'')+'</td><td style="text-align:center"><input class="qi" type="number" min="0" step="1" value="'+(qty||'')+'" placeholder="0" oninput="setQty('+r.id+',this.value)"></td><td style="text-align:right">'+(sub!=null?'<span class="sub">$'+sub.toFixed(2)+'</span>':'<span style="color:#ddd">—</span>')+'</td><td><button class="bsm bdel" onclick="removeRow('+r.id+')">✕</button></td></tr>';
+  }).join('');
+  const sel=catalogue.filter(r=>qtys[r.id]>0&&r.price!=null);
+  if(sel.length){const tQ=sel.reduce((s,r)=>s+(qtys[r.id]||0),0),tA=sel.reduce((s,r)=>s+(qtys[r.id]||0)*r.price,0);tbody.innerHTML+='<tr class="trow"><td colspan="9" style="text-align:right;font-size:11px">TOTAL — '+sel.length+' réf · '+tQ+' pcs</td><td style="text-align:center">'+tQ+'</td><td class="ta" style="text-align:right">$'+tA.toFixed(2)+'</td><td></td></tr>';}
+  updateMetrics();
+  document.getElementById('catalogCount').textContent=catalogue.length+' références';
+  document.getElementById('metCat').textContent=catalogue.length;
+}
+function updateMetrics(){const sel=catalogue.filter(r=>qtys[r.id]>0);document.getElementById('metCount').textContent=sel.length;document.getElementById('metQty').textContent=sel.reduce((s,r)=>s+(qtys[r.id]||0),0);document.getElementById('metTotal').textContent='$'+sel.filter(r=>r.price!=null).reduce((s,r)=>s+(qtys[r.id]||0)*r.price,0).toFixed(2);}
+function setQty(id,val){const n=parseInt(val)||0;n<=0?delete qtys[id]:qtys[id]=n;save();updateMetrics();}
+function resetQty(){if(!Object.keys(qtys).length)return;if(!confirm('Réinitialiser toutes les quantités ?'))return;qtys={};save();render();}
+function removeRow(id){if(!confirm('Supprimer cette référence ?'))return;catalogue=catalogue.filter(r=>r.id!==id);delete qtys[id];save();render();}
+function toggleAdd(){document.getElementById('addPanel').classList.toggle('open');}
+function addRow(){
+  const ref=document.getElementById('nRef').value.trim(),desc=document.getElementById('nDesc').value.trim();
+  if(!ref){alert('Référence requise');return;}
+  catalogue.push({id:nextId++,group:document.getElementById('nGroup').value.trim(),ref,desc:desc||ref,cat:document.getElementById('nCat').value,price:parseFloat(document.getElementById('nPrice').value)||null,moq:parseInt(document.getElementById('nMoq').value)||null,remark:document.getElementById('nRemark').value.trim(),img:''});
+  ['nRef','nDesc','nGroup','nPrice','nMoq','nRemark'].forEach(id=>{document.getElementById(id).value='';});
+  save();render();toast('Produit ajouté');
+}
+function zoomImg(url,ref){document.getElementById('modBody').innerHTML='<p style="font-weight:700;margin-bottom:10px">'+ref+'</p><img src="'+url+'" style="max-width:100%;max-height:360px;object-fit:contain;border-radius:4px">';document.getElementById('photoOv').classList.add('open');}
+function closeMod(){document.getElementById('photoOv').classList.remove('open');}
+function showPrint(){
+  const sel=catalogue.filter(r=>qtys[r.id]>0);
+  if(!sel.length){alert('Aucun article sélectionné.');return;}
+  const name=document.getElementById('orderName').value.trim()||'Commande '+SUPPLIER_NAME;
+  const date=new Date().toLocaleDateString('fr-FR');
+  const tQ=sel.reduce((s,r)=>s+(qtys[r.id]||0),0),tA=sel.filter(r=>r.price!=null).reduce((s,r)=>s+(qtys[r.id]||0)*r.price,0);
+  document.getElementById('printTitle').textContent=SUPPLIER_NAME+' · '+name+' — '+date;
+  document.getElementById('printContent').innerHTML='<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px"><div><h2 style="font-size:18px;font-weight:700;color:#1a1a2e">'+SUPPLIER_NAME+' — Bon de Commande</h2><p style="color:#666;font-size:13px;margin-top:4px">'+name+' · '+date+'</p></div><div style="text-align:right"><div style="font-size:13px;color:#555">'+sel.length+' références · '+tQ+' pcs</div><div style="font-size:20px;font-weight:700;color:#0F6E56;margin-top:4px">$'+tA.toFixed(2)+'</div></div></div><table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="background:#1a1a2e;color:#fff"><th style="padding:8px;width:58px">Photo</th><th style="padding:8px;text-align:left">Réf</th><th style="padding:8px;text-align:left">Description</th><th style="padding:8px;text-align:left">Catégorie</th><th style="padding:8px;text-align:left">Groupe</th><th style="padding:8px;text-align:right">Prix</th><th style="padding:8px;text-align:right">MOQ</th><th style="padding:8px;text-align:right">Qté</th><th style="padding:8px;text-align:right">Total</th><th style="padding:8px;text-align:left">Remarque</th></tr></thead><tbody>'+sel.map((r,i)=>{const qty=qtys[r.id]||0,amt=r.price!=null?qty*r.price:null;const imgHtml=r.img?'<img src="'+r.img+'" style="width:50px;height:50px;object-fit:cover;border-radius:4px;border:1px solid #eee">'  :'<div style="width:50px;height:50px;background:#f5f5f5;border-radius:4px;border:1px dashed #ddd;display:flex;align-items:center;justify-content:center;font-size:20px;color:#ddd">?</div>';return'<tr style="border-bottom:1px solid #f0f0f0;background:'+(i%2?'#fafafa':'#fff')+'"><td style="padding:6px 8px">'+imgHtml+'</td><td style="padding:6px 8px;font-weight:700;color:#1a1a2e">'+r.ref+'</td><td style="padding:6px 8px">'+r.desc+'</td><td style="padding:6px 8px;font-size:11px;color:#666">'+(r.cat||'—')+'</td><td style="padding:6px 8px;font-size:11px;color:#888">'+(r.group||'—')+'</td><td style="padding:6px 8px;text-align:right">'+(r.price!=null?'$'+r.price.toFixed(3):'—')+'</td><td style="padding:6px 8px;text-align:right;color:#888">'+(r.moq!=null?r.moq:'—')+'</td><td style="padding:6px 8px;text-align:right;font-weight:700">'+qty+'</td><td style="padding:6px 8px;text-align:right;font-weight:700;color:#0F6E56">'+(amt!=null?'$'+amt.toFixed(2):'—')+'</td><td style="padding:6px 8px;font-size:11px;color:#888">'+(r.remark||'')+'</td></tr>';}).join('')+'<tr style="background:#1a1a2e;color:#fff;font-weight:700"><td colspan="7" style="padding:10px 8px;text-align:right">TOTAL</td><td style="padding:10px 8px;text-align:right">'+tQ+'</td><td style="padding:10px 8px;text-align:right;color:#4ade80;font-size:15px">$'+tA.toFixed(2)+'</td><td></td></tr></tbody></table>';
+  document.getElementById('printOv').classList.add('open');
+}
+function exportXLS(){
+  const sel=catalogue.filter(r=>qtys[r.id]>0);
+  if(!sel.length){alert('Aucun article sélectionné.');return;}
+  const name=document.getElementById('orderName').value.trim()||'Commande '+SUPPLIER_NAME;
+  const date=new Date().toLocaleDateString('fr-FR');
+  const aoa=[[SUPPLIER_NAME+' — Bon de Commande'],['Commande :',name,'','Date :',date],[],['CTN NO','ITEM NO','DEC','CATEGORIE','PRICE','PCS/CTN','CTN','QUANTITY','AMOUNT','REMARK']];
+  let total=0;
+  sel.forEach(r=>{const qty=qtys[r.id]||0,amt=r.price!=null?parseFloat((qty*r.price).toFixed(2)):null;if(amt)total+=amt;aoa.push([r.group,r.ref,r.desc,r.cat||'',r.price,r.moq,'',qty,amt,r.remark]);});
+  aoa.push([]);aoa.push(['','','','','','',sel.reduce((s,r)=>s+(qtys[r.id]||0),0),parseFloat(total.toFixed(2)),'← TOTAL','']);
+  const ws=XLSX.utils.aoa_to_sheet(aoa);
+  ws['!cols']=[{wch:12},{wch:12},{wch:24},{wch:22},{wch:10},{wch:10},{wch:6},{wch:10},{wch:12},{wch:35}];
+  ws['!merges']=[{s:{r:0,c:0},e:{r:0,c:9}}];
+  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Commande');
+  XLSX.writeFile(wb,(SUPPLIER_NAME+'_'+name).replace(/[^a-zA-Z0-9_\- ]/g,'_')+'_'+date.replace(/\//g,'-')+'.xlsx');
+  toast('Excel exporté');
+}
+function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3000);}
+loadSaved();render();
+</script>
+</body>
+</html>
