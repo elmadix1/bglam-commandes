@@ -281,10 +281,12 @@ def extract_images():
         # Upload to GitHub in background thread (non-blocking)
         if GITHUB_TOKEN and result:
             import threading
-            def upload_all():
+            rc = dict(ref_count)
+            rg = dict(ref_groups)
+            def upload_all(result=result, rc=rc, rg=rg):
                 for ref, b64 in result.items():
-                    group = ref_groups.get(ref, '')
-                    if ref_count.get(ref, 1) > 1 and group:
+                    group = rg.get(ref, '')
+                    if rc.get(ref, 1) > 1 and group:
                         file_key = ref + '_' + group
                     else:
                         file_key = ref
