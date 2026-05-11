@@ -4,6 +4,7 @@ from flask_cors import CORS
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.drawing.image import Image as XLImage
+from openpyxl.utils import get_column_letter
 from PIL import Image as PILImage
 
 app = Flask(__name__)
@@ -99,7 +100,7 @@ def generate_excel():
         cell.fill      = hex_fill(DARK)
         cell.alignment = Alignment(horizontal="center", vertical="center")
         cell.border    = thin_border()
-        from openpyxl.utils import get_column_letter
+
         ws.column_dimensions[get_column_letter(col_idx)].width = w
     ws.row_dimensions[HEADER_ROW].height = 20
 
