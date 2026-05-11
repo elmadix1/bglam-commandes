@@ -195,7 +195,8 @@ tr.hq:hover td{background:#d5f5e8}
 </div>
 <div class="toast" id="toast"></div>
 <script>
-var SK='vicov', SN='BAVA-Rose';
+var SK='vicov', SN='VICOV';
+var BACKEND_URL = 'https://bglam-commandes-production.up.railway.app';
 var CATS=['Onglerie','Extensions de cils','Accessoires pour cils','Cheveux','Soins de la peau et des pieds','Cosmétiques','Soins personnels','Parfum','Chauffe-cire','Machines','Massage','Ameublement','Rangement et organisateurs','Salon de Coiffure et Barbier','Salon Accessories','Nouveauté','Offre','Non classé'];
 var catalogue=[], qtys={}, nextId=1, activeTab='all', sortKey=null, sortAsc=true, parsedRows=[], parsedHeaders=[];
 
@@ -323,8 +324,10 @@ function runImport(){
     var cat=cC>=0?String(row[cC]||'').trim():'';
     var remark=rkC>=0?String(row[rkC]||'').trim():'';
     var img=iC>=0?String(row[iC]||'').trim():'';
-    var githubUrl = pendingUrlMap[ref] || '';
-    var imgData = githubUrl || pendingImageMap[ref] || '';
+    // Look up image by ref+group key (backend uses this to avoid collisions)
+    var imgKey = group ? (ref + '_' + group) : ref;
+    var githubUrl = pendingUrlMap[imgKey] || pendingUrlMap[ref] || '';
+    var imgData = githubUrl || pendingImageMap[imgKey] || pendingImageMap[ref] || '';
 
     // Primary match: same ref
     var ex = catalogue.find(function(c){ return c.ref === ref; });
@@ -509,9 +512,6 @@ function showPrint(){
     '</tbody></table>';
   document.getElementById('printOv').classList.add('open');
 }
-
-/* ── URL du backend Railway ── changez si vous redéployez ── */
-var BACKEND_URL = 'https://bglam-commandes-production.up.railway.app';
 
 function exportXLS(){
   var sel=catalogue.filter(function(r){return qtys[r.id]>0;});
