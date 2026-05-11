@@ -290,10 +290,7 @@ def extract_images():
             def upload_all(result=result, rc=rc, rg=rg):
                 for ref, b64 in result.items():
                     group = rg.get(ref, '')
-                    if rc.get(ref, 1) > 1 and group:
-                        file_key = ref + '_' + group
-                    else:
-                        file_key = ref
+                    file_key = (ref + '_' + group) if group else ref
                     upload_image_to_github(file_key, b64)
             t = threading.Thread(target=upload_all, daemon=True)
             t.start()
@@ -302,10 +299,8 @@ def extract_images():
         if GITHUB_TOKEN:
             for ref in result:
                 group = ref_groups.get(ref, '')
-                if ref_count.get(ref, 1) > 1 and group:
-                    file_key = ref + '_' + group
-                else:
-                    file_key = ref
+                # Always use ref+group as filename to avoid collisions
+                file_key = (ref + '_' + group) if group else ref
                 safe_key = re.sub(r'[^a-zA-Z0-9_-]', '_', file_key)
                 url_map[ref] = f"{IMAGES_BASE_URL}/{safe_key}.jpg"
 
