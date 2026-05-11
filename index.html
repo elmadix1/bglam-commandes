@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BGlam · Commandes</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Arial,sans-serif;font-size:13px;background:#f0f0f0;color:#222}
+
+/* ── HEADER ─────────────────────────────────────────────── */
+header{background:#1a1a2e;color:#fff;padding:11px 18px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+header h1{font-size:16px;font-weight:700}
+.hsub{font-size:11px;color:#888;margin-top:1px}
+.hr{display:flex;align-items:center;gap:7px;margin-left:auto;flex-wrap:wrap}
+#orderName{background:#2a2a4e;border:1px solid #444;color:#fff;padding:5px 9px;border-radius:4px;font-size:12px;width:185px}
+.btn{padding:6px 12px;border-radius:4px;border:none;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap;transition:opacity .15s}
+.btn:hover{opacity:.85}
+.bg{background:#1D9E75;color:#fff}
+.bb{background:#1a6eb5;color:#fff}
+.by{background:#e6c200;color:#333}
+.bk{background:#555;color:#fff}
+.bpr{background:#7c3aed;color:#fff}
+.bsm{padding:3px 8px;font-size:11px;font-weight:600;border-radius:3px;border:1px solid #ccc;cursor:pointer;background:#fff}
+.bdel{background:#fff0f0;color:#c00;border-color:#fcc}
+
+/* ── SUMMARY ─────────────────────────────────────────────── */
+.summary{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:10px 18px;background:#fff;border-bottom:1px solid #ddd}
+.metric{background:#f7f7f7;border:1px solid #e8e8e8;border-radius:5px;padding:8px 12px}
+.ml{font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.3px;margin-bottom:2px}
+.mv{font-size:20px;font-weight:700}.mv.green{color:#0F6E56}
+
+/* ── IMPORT PANEL ────────────────────────────────────────── */
+.imp-panel{display:none;background:#eaf4ff;border-bottom:2px solid #1a6eb5;padding:12px 18px}
+.imp-panel.open{display:block}
+.dz{border:2px dashed #1a6eb5;border-radius:6px;padding:18px;text-align:center;cursor:pointer;background:#fff;transition:background .15s}
+.dz:hover,.dz.drag{background:#dceeff}
+.dz p{color:#666;font-size:12px;margin:4px 0 0}
+.ilog{margin-top:7px;font-size:11px;background:#fff;border:1px solid #b8d8f8;border-radius:4px;padding:8px;max-height:90px;overflow-y:auto;white-space:pre-wrap;display:none}
+.cmap{display:none;margin-top:10px;background:#fff;border:1px solid #ccc;border-radius:4px;padding:10px}
+.cmap h3{font-size:12px;font-weight:700;margin-bottom:7px}
+.cmg{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:7px}
+.cmf{display:flex;flex-direction:column;gap:2px}
+.cmf label{font-size:10px;font-weight:700;text-transform:uppercase;color:#666}
+.cmf select{padding:3px 6px;border:1px solid #ccc;border-radius:3px;font-size:11px}
+.ires{font-size:12px;color:#0F6E56;font-weight:700;margin-left:10px}
+.ihint{margin-top:8px;font-size:11px;color:#666;line-height:1.6}
+
+/* ── TOOLBAR ─────────────────────────────────────────────── */
+.tb{padding:8px 18px;background:#fff;border-bottom:1px solid #ddd;display:flex;gap:7px;align-items:center;flex-wrap:wrap}
+.tb input[type=text]{padding:5px 9px;border:1px solid #ccc;border-radius:4px;font-size:12px;width:200px}
+.tb select{padding:5px 7px;border:1px solid #ccc;border-radius:4px;font-size:12px}
+.tb label{font-size:12px;display:flex;align-items:center;gap:4px;cursor:pointer;white-space:nowrap}
+.sep{width:1px;background:#ddd;height:20px;margin:0 2px}
+
+/* ── ADD FORM ────────────────────────────────────────────── */
+.add-panel{display:none;background:#fffbea;border-bottom:1px solid #e8d800;padding:9px 18px}
+.add-panel.open{display:flex;gap:7px;flex-wrap:wrap;align-items:flex-end}
+.af{display:flex;flex-direction:column;gap:2px;min-width:85px;flex:1}
+.af label{font-size:10px;font-weight:700;text-transform:uppercase;color:#666}
+.af input,.af select{padding:4px 7px;border:1px solid #ccc;border-radius:3px;font-size:12px}
+
+/* ── TABS ────────────────────────────────────────────────── */
+.tabs{display:flex;gap:2px;padding:7px 18px 0;background:#fff;overflow-x:auto;border-bottom:1px solid #ddd;scrollbar-width:thin}
+.tab{padding:5px 11px;border-radius:4px 4px 0 0;border:1px solid #ddd;border-bottom:none;font-size:11px;cursor:pointer;background:#efefef;white-space:nowrap;color:#555;font-weight:600}
+.tab.active{background:#1a1a2e;color:#fff;border-color:#1a1a2e}
+
+/* ── TABLE ───────────────────────────────────────────────── */
+.tw{overflow-x:auto;padding:0 18px 24px}
+table{width:100%;border-collapse:collapse;margin-top:9px;background:#fff;border-radius:6px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+th{background:#1a1a2e;color:#fff;padding:8px 9px;text-align:left;font-size:11px;font-weight:700;white-space:nowrap;cursor:pointer;user-select:none}
+th:hover{background:#2a2a4e}
+td{padding:6px 9px;border-bottom:1px solid #f0f0f0;vertical-align:middle}
+tr:hover td{background:#f9f9f9}
+tr.hq td{background:#edfcf5}
+tr.hq:hover td{background:#d5f5e8}
+.rc{font-weight:700;color:#1a1a2e;font-size:12px}
+.cbadge{display:inline-block;font-size:10px;padding:2px 7px;border-radius:10px;font-weight:600;white-space:nowrap}
+.gb{display:inline-block;font-size:10px;padding:1px 5px;border-radius:3px;background:#e8e8ff;color:#334;font-weight:600}
+.rmcell{font-size:11px;color:#888;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.qi{width:60px;text-align:center;padding:4px;border:1px solid #ccc;border-radius:3px;font-size:12px}
+.qi:focus{outline:none;border-color:#1D9E75;box-shadow:0 0 0 2px #1D9E7530}
+.sub{font-weight:700;color:#0F6E56}
+.nop{color:#bbb;font-style:italic;font-size:11px}
+.trow td{background:#1a1a2e!important;color:#fff;font-weight:700}
+.trow .ta{color:#4ade80;font-size:14px}
+.emsg{text-align:center;padding:40px;color:#aaa;font-size:14px;display:none}
+
+/* ── PHOTO CELL ──────────────────────────────────────────── */
+.photo-cell{position:relative;width:52px}
+.photo-cell img{width:48px;height:48px;object-fit:cover;border-radius:4px;border:1px solid #ddd;cursor:zoom-in;display:block}
+.photo-drop{width:48px;height:48px;border:1.5px dashed #ccc;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:20px;color:#ccc;cursor:pointer;background:#fafafa;transition:border-color .15s,background .15s;position:relative}
+.photo-drop:hover,.photo-drop.dragover{border-color:#1D9E75;background:#edfcf5;color:#1D9E75}
+.photo-drop input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.photo-drop span{pointer-events:none;font-size:18px}
+.photo-rm{position:absolute;top:-5px;right:-5px;width:16px;height:16px;border-radius:50%;background:#c00;color:#fff;border:none;font-size:10px;cursor:pointer;display:none;align-items:center;justify-content:center;line-height:1}
+.photo-cell:hover .photo-rm{display:flex}
+
+/* ── CATEGORY BADGE COLORS ───────────────────────────────── */
+.cat-Onglerie{background:#fce7f3;color:#9d174d}
+.cat-Extensions-de-cils{background:#ede9fe;color:#5b21b6}
+.cat-Accessoires-pour-cils{background:#ddd6fe;color:#4c1d95}
+.cat-Cheveux{background:#fef3c7;color:#92400e}
+.cat-Soins-de-la-peau-et-des-pieds{background:#d1fae5;color:#065f46}
+.cat-Cosmetiques{background:#fce7f3;color:#831843}
+.cat-Soins-personnels{background:#e0f2fe;color:#0c4a6e}
+.cat-Parfum{background:#fdf4ff;color:#701a75}
+.cat-Chauffe-cire{background:#fff7ed;color:#9a3412}
+.cat-Machines{background:#f1f5f9;color:#334155}
+.cat-Massage{background:#ecfdf5;color:#14532d}
+.cat-Ameublement{background:#fef9c3;color:#713f12}
+.cat-Rangement-et-organisateurs{background:#e0f2fe;color:#075985}
+.cat-Salon-de-Coiffure-et-Barbier{background:#f0fdf4;color:#166534}
+.cat-Salon-Accessories{background:#f5f3ff;color:#4338ca}
+.cat-Nouveaute{background:#fef2f2;color:#991b1b}
+.cat-Offre{background:#fff7ed;color:#c2410c}
+.cat-Non-classe{background:#f3f4f6;color:#6b7280}
+
+/* ── MODAL / OVERLAY ─────────────────────────────────────── */
+.ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:999;align-items:center;justify-content:center}
+.ov.open{display:flex}
+.mod{background:#fff;border-radius:8px;padding:18px;max-width:460px;width:90%;position:relative}
+.mcls{position:absolute;top:10px;right:14px;font-size:20px;cursor:pointer;color:#999;line-height:1}
+.mcls:hover{color:#333}
+
+/* ── TOAST ───────────────────────────────────────────────── */
+.toast{position:fixed;bottom:20px;right:20px;background:#1a1a2e;color:#fff;padding:9px 16px;border-radius:6px;font-size:12px;opacity:0;transition:opacity .25s;pointer-events:none;z-index:9999}
+.toast.show{opacity:1}
+
+/* ── PRINT PREVIEW ───────────────────────────────────────── */
+.print-ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:1000;overflow-y:auto}
+.print-ov.open{display:block}
+.print-box{background:#fff;margin:30px auto;max-width:860px;border-radius:8px;padding:0;overflow:hidden}
+.print-toolbar{background:#1a1a2e;color:#fff;padding:10px 18px;display:flex;gap:8px;align-items:center}
+.print-toolbar span{flex:1;font-size:14px;font-weight:700}
+.print-content{padding:24px}
+@media print{
+  body>*:not(.print-ov){display:none!important}
+  .print-ov{display:block!important;position:static;background:#fff}
+  .print-toolbar{display:none!important}
+  .print-box{margin:0;border-radius:0;box-shadow:none}
+}
+
+@media(max-width:680px){
+  .summary{grid-template-columns:repeat(2,1fr)}
+  .tb input[type=text]{width:140px}
+}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div>
+    <h1>💅 BGlam · Commandes</h1>
+    <div class="hsub" id="catalogCount">213 références</div>
+  </div>
+  <div class="hr">
+    <input id="orderName" type="text" placeholder="Nom commande (ex: Rose Mai 2026)">
+    <button class="btn by" onclick="toggleImport()">📥 Importer Excel</button>
+    <button class="btn bk" onclick="resetQty()">↺ Réinit.</button>
+    <button class="btn bpr" onclick="showPrint()">🖨 Aperçu commande</button>
+    <button class="btn bg" onclick="exportXLS()">⬇ Excel</button>
+  </div>
+</header>
+
+<!-- SUMMARY -->
+<div class="summary">
+  <div class="metric"><div class="ml">Refs sélectionnées</div><div class="mv" id="metCount">0</div></div>
+  <div class="metric"><div class="ml">Quantité totale</div><div class="mv" id="metQty">0</div></div>
+  <div class="metric"><div class="ml">Total commande</div><div class="mv green" id="metTotal">$0.00</div></div>
+  <div class="metric"><div class="ml">Catalogue</div><div class="mv" id="metCat">213</div></div>
+</div>
+
+<!-- IMPORT PANEL -->
+<div class="imp-panel" id="impPanel">
+  <div style="font-size:13px;font-weight:700;color:#1a6eb5;margin-bottom:8px">📥 Importer / Mettre à jour le catalogue depuis Excel</div>
+  <div class="dz" id="dz"
+    onclick="document.getElementById('xlsFile').click()"
+    ondragover="event.preventDefault();this.classList.add('drag')"
+    ondragleave="this.classList.remove('drag')"
+    ondrop="handleXlsDrop(event)">
+    <div style="font-size:26px">📂</div>
+    <strong>Glisse ton fichier Excel ici</strong>
+    <p>ou clique pour choisir (.xlsx, .xls) — format BAVA ou autre</p>
+    <input type="file" id="xlsFile" accept=".xlsx,.xls" style="display:none" onchange="handleXlsFile(this.files[0])">
+  </div>
+  <div class="ilog" id="ilog"></div>
+  <div class="cmap" id="cmap">
+    <h3>🔗 Association des colonnes — vérifie et ajuste si besoin</h3>
+    <div class="cmg" id="cmg"></div>
+    <div style="display:flex;align-items:center;margin-top:10px;gap:8px">
+      <button class="btn bb" onclick="runImport()">✓ Importer et fusionner</button>
+      <span class="ires" id="ires"></span>
+    </div>
+  </div>
+  <div class="ihint">
+    <strong>Colonnes reconnues :</strong> ITEM NO · DEC/description · PRICE · PCS/CTN · CTN NO · REMARK · URL image<br>
+    Nouvelles refs → ajoutées · Prix/MOQ changés → mis à jour · Photos existantes → jamais écrasées · Quantités → jamais touchées.
+  </div>
+</div>
+
+<!-- TOOLBAR -->
+<div class="tb">
+  <input type="text" id="srch" placeholder="🔍 Réf, description, remarque..." oninput="render()">
+  <select id="fCat" onchange="render()"><option value="">Toutes catégories</option></select>
+  <div class="sep"></div>
+  <label><input type="checkbox" id="fSel" onchange="render()"> Sélectionnés</label>
+  <div class="sep"></div>
+  <button class="btn by" style="font-size:11px;padding:5px 10px" onclick="toggleAdd()">+ Produit</button>
+  <button class="btn bk" style="font-size:11px;padding:5px 10px" onclick="exportCat()">💾 Backup</button>
+</div>
+
+<!-- ADD FORM -->
+<div class="add-panel" id="addPanel">
+  <div class="af"><label>Réf *</label><input id="nRef" placeholder="BA-XXX"></div>
+  <div class="af"><label>Description *</label><input id="nDesc" placeholder="nail tips"></div>
+  <div class="af"><label>Catégorie</label>
+    <select id="nCat">
+      <option value="Non classé">Non classé</option>
+      <option value="Onglerie">Onglerie</option>
+      <option value="Extensions de cils">Extensions de cils</option>
+      <option value="Accessoires pour cils">Accessoires pour cils</option>
+      <option value="Cheveux">Cheveux</option>
+      <option value="Soins de la peau et des pieds">Soins de la peau et des pieds</option>
+      <option value="Cosmétiques">Cosmétiques</option>
+      <option value="Soins personnels">Soins personnels</option>
+      <option value="Parfum">Parfum</option>
+      <option value="Chauffe-cire">Chauffe-cire</option>
+      <option value="Machines">Machines</option>
+      <option value="Massage">Massage</option>
+      <option value="Ameublement">Ameublement</option>
+      <option value="Rangement et organisateurs">Rangement et organisateurs</option>
+      <option value="Salon de Coiffure et Barbier">Salon de Coiffure et Barbier</option>
+      <option value="Salon Accessories">Salon Accessories</option>
+      <option value="Nouveauté">Nouveauté</option>
+      <option value="Offre">Offre</option>
+    </select>
+  </div>
+  <div class="af"><label>Groupe CTN</label><input id="nGroup" placeholder="1#"></div>
+  <div class="af"><label>Prix ($)</label><input id="nPrice" type="number" step="0.001" placeholder="1.18"></div>
+  <div class="af"><label>MOQ</label><input id="nMoq" type="number" placeholder="25"></div>
+  <div class="af"><label>Remarque</label><input id="nRemark" placeholder="couleurs..."></div>
+  <button class="btn bg" onclick="addRow()" style="align-self:flex-end">✓ Ajouter</button>
+  <button class="btn bk" onclick="toggleAdd()" style="align-self:flex-end">Annuler</button>
+</div>
+
+<!-- TABS (BGlam categories) -->
+<div class="tabs" id="tabs"></div>
+
+<!-- TABLE -->
+<div class="tw">
+  <table id="mainTbl" style="display:none">
+    <thead><tr>
+      <th style="width:26px">#</th>
+      <th style="width:56px">Photo</th>
+      <th onclick="sortBy('ref')">Réf ↕</th>
+      <th onclick="sortBy('desc')">Description ↕</th>
+      <th onclick="sortBy('cat')">Catégorie ↕</th>
+      <th onclick="sortBy('group')">Groupe ↕</th>
+      <th onclick="sortBy('price')" style="text-align:right">Prix ↕</th>
+      <th style="text-align:right">MOQ</th>
+      <th>Remarque</th>
+      <th style="text-align:center;width:68px">Qté</th>
+      <th style="text-align:right;width:86px">Sous-total</th>
+      <th style="width:26px"></th>
+    </tr></thead>
+    <tbody id="tbody"></tbody>
+  </table>
+  <div class="emsg" id="emsg">Aucun article trouvé.</div>
+</div>
+
+<!-- Photo zoom modal -->
+<div class="ov" id="photoOv" onclick="closeMod()">
+  <div class="mod" onclick="event.stopPropagation()">
+    <span class="mcls" onclick="closeMod()">✕</span>
+    <div id="modBody"></div>
+  </div>
+</div>
+
+<!-- Print preview overlay -->
+<div class="print-ov" id="printOv">
+  <div class="print-box">
+    <div class="print-toolbar">
+      <span id="printTitle">Aperçu commande</span>
+      <button class="btn bg" onclick="window.print()">🖨 Imprimer</button>
+      <button class="btn bk" onclick="closePrint()">✕ Fermer</button>
+    </div>
+    <div class="print-content" id="printContent"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ─── CATEGORIES ───────────────────────────────────────────────────────────────
+const CATS = [
+  'Onglerie','Extensions de cils','Accessoires pour cils','Cheveux',
+  'Soins de la peau et des pieds','Cosmétiques','Soins personnels','Parfum',
+  'Chauffe-cire','Machines','Massage','Ameublement','Rangement et organisateurs',
+  'Salon de Coiffure et Barbier','Salon Accessories','Nouveauté','Offre','Non classé'
+];
+
+function catClass(cat) {
+  if (!cat) return 'cat-Non-classe';
+  return 'cat-' + cat.replace(/[éèê]/g,'e').replace(/[àâ]/g,'a').replace(/\s+/g,'-').replace(/[^a-zA-Z0-9\-]/g,'');
+}
+
+// ─── CATALOGUE ────────────────────────────────────────────────────────────────
+// cat field added (empty = to be tagged by user)
+let catalogue = [{"id":1,"group":"1#","ref":"BA-398","desc":"nail tips","cat":"Onglerie","price":1.18,"moq":25,"remark":"","img":""},{"id":2,"group":"1#","ref":"BA-399","desc":"nail tips","cat":"Onglerie","price":1.18,"moq":25,"remark":"","img":""},{"id":3,"group":"1#","ref":"BA-403","desc":"nail tips","cat":"Onglerie","price":1.6,"moq":25,"remark":"","img":""},{"id":4,"group":"1#","ref":"BA-408","desc":"nail tips","cat":"Onglerie","price":1.18,"moq":25,"remark":"","img":""},{"id":5,"group":"2#","ref":"BA-400","desc":"nail tips","cat":"Onglerie","price":1.18,"moq":50,"remark":"","img":""},{"id":6,"group":"2#","ref":"BA-402","desc":"nail tips","cat":"Onglerie","price":1.18,"moq":50,"remark":"","img":""},{"id":7,"group":"3#","ref":"BA-401","desc":"nail tips","cat":"Onglerie","price":1.18,"moq":50,"remark":"","img":""},{"id":8,"group":"3#","ref":"BA-406","desc":"nail tips","cat":"Onglerie","price":1.18,"moq":50,"remark":"","img":""},{"id":9,"group":"4#","ref":"BA-404","desc":"nail tips","cat":"Onglerie","price":1.18,"moq":50,"remark":"","img":""},{"id":10,"group":"4#","ref":"BA-405","desc":"nail tips","cat":"Onglerie","price":1.18,"moq":50,"remark":"","img":""},{"id":11,"group":"5#","ref":"BA-407","desc":"nail tips","cat":"Onglerie","price":1.6,"moq":25,"remark":"","img":""},{"id":12,"group":"6#-8#","ref":"BA-397","desc":"desktop vacuum cleaner","cat":"Machines","price":7.6,"moq":10,"remark":"","img":""},{"id":13,"group":"9#","ref":"BA-373","desc":"plastic box","cat":"Rangement et organisateurs","price":0.9,"moq":20,"remark":"big","img":""},{"id":14,"group":"9#","ref":"BA-374","desc":"plastic box","cat":"Rangement et organisateurs","price":0.4,"moq":20,"remark":"small","img":""},{"id":15,"group":"10#-12#","ref":"BA-385","desc":"hand rest","cat":"Onglerie","price":13.0,"moq":10,"remark":"black,white,pink each 10","img":""},{"id":16,"group":"13#","ref":"BA-232","desc":"pen holder","cat":"Onglerie","price":1.2,"moq":40,"remark":"EACH 5","img":""},{"id":17,"group":"14#","ref":"BA-466","desc":"nail lamp","cat":"Onglerie","price":1.9,"moq":100,"remark":"100black","img":""},{"id":18,"group":"15#","ref":"BA-466","desc":"nail lamp","cat":"Onglerie","price":1.9,"moq":75,"remark":"75silver","img":""},{"id":19,"group":"178#","ref":"BA-466","desc":"nail lamp","cat":"Onglerie","price":1.9,"moq":25,"remark":"25pink","img":""},{"id":20,"group":"16#","ref":"BA-263","desc":"roller","cat":"Massage","price":5.7,"moq":20,"remark":"","img":""},{"id":21,"group":"17#","ref":"BA-242","desc":"nail decoration","cat":"Onglerie","price":3.3,"moq":72,"remark":"12each","img":""},{"id":22,"group":"18#","ref":"BA-255","desc":"foot basin","cat":"Soins de la peau et des pieds","price":15.7,"moq":10,"remark":"40CM","img":""},{"id":23,"group":"19#","ref":"BA-246","desc":"Nutrition Oil","cat":"Soins personnels","price":0.89,"moq":150,"remark":"50each","img":""},{"id":24,"group":"26#","ref":"BA-267","desc":"massage tool","cat":"Massage","price":1.12,"moq":15,"remark":"5EACH","img":""},{"id":25,"group":"27#","ref":"BA-480","desc":"neck rest","cat":"Massage","price":0.085,"moq":500,"remark":"","img":""},{"id":26,"group":"28#","ref":"BA-481","desc":"wax warmer","cat":"Chauffe-cire","price":6.8,"moq":12,"remark":"","img":""},{"id":27,"group":"35#-42#","ref":"BA-359","desc":"chair","cat":"Ameublement","price":18.0,"moq":1,"remark":"","img":""},{"id":28,"group":"43#-49#","ref":"BA-387","desc":"hand rest","cat":"Onglerie","price":5.8,"moq":15,"remark":"PINK 50,BLACK 45,WHITE30","img":""},{"id":29,"group":"50#","ref":"BA-387","desc":"hand rest","cat":"Onglerie","price":5.8,"moq":20,"remark":"PINK 50,BLACK 45,WHITE30","img":""},{"id":30,"group":"51#-60#","ref":"BA-202","desc":"fronk desk","cat":"Ameublement","price":42.0,"moq":1,"remark":"2 EACH","img":""},{"id":31,"group":"61#-75#","ref":"BA-473","desc":"chair","cat":"Ameublement","price":13.0,"moq":1,"remark":"15PINK","img":""},{"id":32,"group":"76#-77#","ref":"BA-313","desc":"massage kits","cat":"Massage","price":11.5,"moq":10,"remark":"","img":""},{"id":33,"group":"78#-79#","ref":"BA-416","desc":"manicure table","cat":"Ameublement","price":69.0,"moq":1,"remark":"80CM","img":""},{"id":34,"group":"80#-81#","ref":"BA-416","desc":"table accessories","cat":"Ameublement","price":null,"moq":null,"remark":"","img":""},{"id":35,"group":"82#-83#","ref":"BA-417","desc":"manicure table","cat":"Ameublement","price":78.0,"moq":1,"remark":"100CM","img":""},{"id":36,"group":"84#-85#","ref":"BA-417","desc":"table accessories","cat":"Ameublement","price":null,"moq":null,"remark":"","img":""},{"id":37,"group":"86#-87#","ref":"BA-418","desc":"manicure table","cat":"Ameublement","price":125.0,"moq":1,"remark":"140CM","img":""},{"id":38,"group":"88#-89#","ref":"BA-418","desc":"table accessories","cat":"Ameublement","price":null,"moq":null,"remark":"","img":""},{"id":39,"group":"90#-139#","ref":"BA-198","desc":"chair","cat":"Ameublement","price":7.5,"moq":1,"remark":"white","img":""},{"id":40,"group":"140#-143#","ref":"BA-464","desc":"massage bed","cat":"Massage","price":49.0,"moq":1,"remark":"2FOLDS","img":""},{"id":41,"group":"144#-145#","ref":"BA-465","desc":"massage bed","cat":"Massage","price":54.0,"moq":1,"remark":"3FOLDS","img":""},{"id":42,"group":"146#","ref":"BA-519","desc":"chair","cat":"Ameublement","price":24.0,"moq":2,"remark":"BLACK","img":""},{"id":43,"group":"147#","ref":"BA-487","desc":"shopping basket","cat":"Rangement et organisateurs","price":3.9,"moq":12,"remark":"BLACK,PINK,WHITE EACH 5","img":""},{"id":44,"group":"153#","ref":"BA-487","desc":"shopping basket","cat":"Rangement et organisateurs","price":3.9,"moq":3,"remark":"BLACK,PINK,WHITE EACH 5","img":""},{"id":45,"group":"148#","ref":"BA-523","desc":"Nutrition Oil","cat":"Soins personnels","price":0.2,"moq":600,"remark":"EACH 40","img":""},{"id":46,"group":"149#","ref":"BA-518","desc":"nail file","cat":"Onglerie","price":0.09,"moq":1000,"remark":"half moon","img":""},{"id":47,"group":"150#","ref":"BA-503","desc":"plastic box","cat":"Rangement et organisateurs","price":1.3,"moq":25,"remark":"","img":""},{"id":48,"group":"151#","ref":"BA-520","desc":"nail remover","cat":"Onglerie","price":0.38,"moq":100,"remark":"","img":""},{"id":49,"group":"152#","ref":"BA-524","desc":"eyelashes brush","cat":"Extensions de cils","price":0.36,"moq":125,"remark":"BLUE,GREEN,PURPLE,YELLOW,PINK EACH 25","img":""},{"id":50,"group":"154#","ref":"BA-500","desc":"cleaner pads","cat":"Soins de la peau et des pieds","price":0.8,"moq":50,"remark":"","img":""},{"id":51,"group":"155#-156#","ref":"BA-485","desc":"plastic holder","cat":"Rangement et organisateurs","price":0.36,"moq":320,"remark":"28CM","img":""},{"id":52,"group":"157#","ref":"BA-485","desc":"plastic holder","cat":"Rangement et organisateurs","price":0.36,"moq":360,"remark":"28CM","img":""},{"id":53,"group":"158#","ref":"BA-482","desc":"wax warmer","cat":"Chauffe-cire","price":9.8,"moq":12,"remark":"","img":""},{"id":54,"group":"159#","ref":"BA-497","desc":"plastic color chart","cat":"Onglerie","price":0.4,"moq":150,"remark":"50SQUARE,ALMOND,STILETTO,CLEAR","img":""},{"id":55,"group":"160#","ref":"BA-504","desc":"nail tips","cat":"Onglerie","price":1.25,"moq":50,"remark":"","img":""},{"id":56,"group":"161#","ref":"BA-337","desc":"color chart","cat":"Onglerie","price":1.7,"moq":25,"remark":"","img":""},{"id":57,"group":"162#","ref":"BA-412","desc":"air brush","cat":"Machines","price":12.0,"moq":30,"remark":"10BLACK,10PINK,10GOLD","img":""},{"id":58,"group":"169#","ref":"BA-446","desc":"uv lamp","cat":"Onglerie","price":17.0,"moq":6,"remark":"","img":""},{"id":59,"group":"170#","ref":"BA-446","desc":"uv lamp","cat":"Onglerie","price":17.0,"moq":4,"remark":"","img":""},{"id":60,"group":"171#","ref":"BA-353","desc":"beauty chair","cat":"Ameublement","price":220.0,"moq":1,"remark":"PINK","img":""},{"id":61,"group":"172#-174#","ref":"BA-356","desc":"beauty chair","cat":"Ameublement","price":99.0,"moq":1,"remark":"white","img":""},{"id":62,"group":"175#-177#","ref":"BA-356","desc":"stool","cat":"Ameublement","price":null,"moq":null,"remark":"white","img":""},{"id":63,"group":"179#-180#","ref":"BA-450","desc":"chair","cat":"Ameublement","price":10.5,"moq":5,"remark":"BLACK","img":""},{"id":64,"group":"193#-202#","ref":"BA-257","desc":"manicure table","cat":"Ameublement","price":28.75,"moq":1,"remark":"5WHITE,5BLACK","img":""},{"id":65,"group":"203#-208#","ref":"BA-258","desc":"manicure table","cat":"Ameublement","price":31.09,"moq":1,"remark":"3BLACK,3WHITE","img":""},{"id":66,"group":"209#-214#","ref":"BA-259","desc":"manicure table","cat":"Ameublement","price":31.98,"moq":1,"remark":"3BLACK,3WHITE","img":""},{"id":67,"group":"215#","ref":"BA-472","desc":"stone warmer","cat":"Massage","price":40.0,"moq":6,"remark":"","img":""},{"id":68,"group":"216#","ref":"BA-365","desc":"trash can","cat":"Rangement et organisateurs","price":0.58,"moq":80,"remark":"WHITE","img":""},{"id":69,"group":"217#-219#","ref":"BA-390","desc":"chair","cat":"Ameublement","price":26.0,"moq":1,"remark":"","img":""},{"id":70,"group":"220#","ref":"BA-441","desc":"Practice Hands","cat":"Onglerie","price":4.8,"moq":20,"remark":"","img":""},{"id":71,"group":"221#","ref":"BA-237","desc":"drill bit","cat":"Onglerie","price":3.5,"moq":15,"remark":"","img":""},{"id":72,"group":"221#","ref":"BA-381","desc":"envelope","cat":"Rangement et organisateurs","price":0.019,"moq":250,"remark":"75X150,50PCS/BAG","img":""},{"id":73,"group":"221#","ref":"BA-382","desc":"envelope","cat":"Rangement et organisateurs","price":0.026,"moq":250,"remark":"100X200 50PCS/BAG","img":""},{"id":74,"group":"221#","ref":"BA-243","desc":"eyelashes kits","cat":"Extensions de cils","price":1.8,"moq":20,"remark":"","img":""},{"id":75,"group":"221#","ref":"BA-384","desc":"nail decoration","cat":"Onglerie","price":0.3,"moq":100,"remark":"each 25","img":""},{"id":76,"group":"221#","ref":"BA-498","desc":"nail decoration","cat":"Onglerie","price":0.23,"moq":50,"remark":"","img":""},{"id":77,"group":"221#","ref":"BA-396","desc":"uv lamp","cat":"Onglerie","price":2.5,"moq":50,"remark":"","img":""},{"id":78,"group":"221#","ref":"BA-299","desc":"storage bag","cat":"Rangement et organisateurs","price":1.2,"moq":5,"remark":"SMALL","img":""},{"id":79,"group":"221#","ref":"BA-300","desc":"storage bag","cat":"Rangement et organisateurs","price":1.3,"moq":5,"remark":"MEDIUM","img":""},{"id":80,"group":"221#","ref":"BA-301","desc":"storage bag","cat":"Rangement et organisateurs","price":1.4,"moq":5,"remark":"BIG","img":""},{"id":81,"group":"221#","ref":"BA-474","desc":"drill bits","cat":"Onglerie","price":0.08,"moq":100,"remark":"","img":""},{"id":82,"group":"221#","ref":"BA-234","desc":"nail tips","cat":"Onglerie","price":0.18,"moq":100,"remark":"50EACH","img":""},{"id":83,"group":"221#","ref":"BA-436","desc":"lip brush","cat":"Cosmétiques","price":0.21,"moq":30,"remark":"","img":""},{"id":84,"group":"221#","ref":"BA-427","desc":"color chart stand","cat":"Onglerie","price":0.99,"moq":25,"remark":"","img":""},{"id":85,"group":"221#","ref":"BA-428","desc":"color chart stand","cat":"Onglerie","price":1.1,"moq":20,"remark":"","img":""},{"id":86,"group":"221#","ref":"BA-239","desc":"steel plate","cat":"Onglerie","price":0.88,"moq":10,"remark":"gold","img":""},{"id":87,"group":"221#","ref":"BA-343","desc":"phone holder","cat":"Salon Accessories","price":0.35,"moq":5,"remark":"","img":""},{"id":88,"group":"221#","ref":"BA-394","desc":"scissors","cat":"Salon Accessories","price":0.77,"moq":50,"remark":"","img":""},{"id":89,"group":"221#","ref":"BA-395","desc":"scissors","cat":"Salon Accessories","price":0.57,"moq":50,"remark":"","img":""},{"id":90,"group":"222#","ref":"BA-420","desc":"nail tips","cat":"Onglerie","price":0.77,"moq":20,"remark":"","img":""},{"id":91,"group":"222#","ref":"BA-421","desc":"nail tips","cat":"Onglerie","price":1.78,"moq":20,"remark":"","img":""},{"id":92,"group":"222#","ref":"BA-422","desc":"nail tips","cat":"Onglerie","price":2.1,"moq":20,"remark":"","img":""},{"id":93,"group":"222#","ref":"BA-266","desc":"massage tool","cat":"Massage","price":1.12,"moq":15,"remark":"5EACH","img":""},{"id":94,"group":"222#","ref":"BA-295","desc":"tweezers","cat":"Onglerie","price":0.52,"moq":50,"remark":"10 EACH","img":""},{"id":95,"group":"222#","ref":"BA-278-1","desc":"nail glue","cat":"Onglerie","price":0.6,"moq":50,"remark":"50 CLEAR","img":""},{"id":96,"group":"222#","ref":"BA-478","desc":"paper","cat":"Rangement et organisateurs","price":0.74,"moq":50,"remark":"","img":""},{"id":97,"group":"223#","ref":"BA-375","desc":"nail decoration","cat":"Onglerie","price":0.5,"moq":50,"remark":"gold","img":""},{"id":98,"group":"223#","ref":"BA-271","desc":"nail decoration","cat":"Onglerie","price":0.5,"moq":25,"remark":"","img":""},{"id":99,"group":"223#","ref":"BA-433","desc":"drill bits","cat":"Onglerie","price":0.28,"moq":120,"remark":"04,31,32,33 each 30","img":""},{"id":100,"group":"223#","ref":"BA-229","desc":"nail clipper","cat":"Onglerie","price":0.3,"moq":20,"remark":"","img":""},{"id":101,"group":"223#","ref":"BA-451","desc":"nail brush","cat":"Onglerie","price":0.38,"moq":50,"remark":"","img":""},{"id":102,"group":"223#","ref":"BA-452","desc":"nail brush","cat":"Onglerie","price":0.8,"moq":50,"remark":"","img":""},{"id":103,"group":"223#","ref":"BA-453","desc":"nail brush","cat":"Onglerie","price":0.8,"moq":50,"remark":"","img":""},{"id":104,"group":"223#","ref":"BA-100","desc":"eyelashes tape","cat":"Extensions de cils","price":0.19,"moq":50,"remark":"","img":""},{"id":105,"group":"223#","ref":"BA-506","desc":"color mixing plate","cat":"Onglerie","price":0.75,"moq":75,"remark":"BLUE,WHITE,PINK EACH 25","img":""},{"id":106,"group":"223#","ref":"BA-437","desc":"drill bits","cat":"Onglerie","price":0.85,"moq":35,"remark":"20blue,10red,5green","img":""},{"id":107,"group":"223#","ref":"BA-392","desc":"scissors","cat":"Salon Accessories","price":0.94,"moq":25,"remark":"","img":""},{"id":108,"group":"223#","ref":"BA-329","desc":"gloves","cat":"Soins personnels","price":0.42,"moq":20,"remark":"WHITE","img":""},{"id":109,"group":"223#","ref":"BA-265","desc":"massage tool","cat":"Massage","price":0.15,"moq":30,"remark":"5EACH","img":""},{"id":110,"group":"224#","ref":"BA-213","desc":"nail file","cat":"Onglerie","price":0.031,"moq":1000,"remark":"","img":""},{"id":111,"group":"224#","ref":"BA-379","desc":"magnet","cat":"Onglerie","price":1.1,"moq":25,"remark":"PINK","img":""},{"id":112,"group":"224#","ref":"BA-430","desc":"nail brush","cat":"Onglerie","price":0.69,"moq":30,"remark":"","img":""},{"id":113,"group":"224#","ref":"BA-371","desc":"plastic box","cat":"Rangement et organisateurs","price":0.11,"moq":60,"remark":"85X85,30CLEAR,30BLACK","img":""},{"id":114,"group":"224#","ref":"BA-372","desc":"plastic box","cat":"Rangement et organisateurs","price":0.09,"moq":60,"remark":"75X75,30CLEAR,30BLACK","img":""},{"id":115,"group":"224#","ref":"BA-370-1","desc":"drill bits","cat":"Onglerie","price":1.14,"moq":30,"remark":"30PINK","img":""},{"id":116,"group":"224#","ref":"BA-370-2","desc":"drill bits","cat":"Onglerie","price":2.1,"moq":30,"remark":"30PURPLE","img":""},{"id":117,"group":"224#","ref":"BA-370-3","desc":"drill bits","cat":"Onglerie","price":1.59,"moq":30,"remark":"30GREEN","img":""},{"id":118,"group":"224#","ref":"BA-508","desc":"sand beads","cat":"Onglerie","price":1.19,"moq":30,"remark":"","img":""},{"id":119,"group":"225#","ref":"BA-325","desc":"nail brush","cat":"Onglerie","price":0.55,"moq":30,"remark":"CLEAR","img":""},{"id":120,"group":"225#","ref":"BA-331","desc":"massage tool","cat":"Massage","price":1.95,"moq":10,"remark":"","img":""},{"id":121,"group":"225#","ref":"BA-521","desc":"sand paper","cat":"Onglerie","price":1.5,"moq":80,"remark":"","img":""},{"id":122,"group":"225#","ref":"BA-489","desc":"chair cover","cat":"Ameublement","price":0.62,"moq":50,"remark":"","img":""},{"id":123,"group":"225#","ref":"BA-54","desc":"table matt","cat":"Ameublement","price":2.8,"moq":6,"remark":"","img":""},{"id":124,"group":"226#","ref":"BA-244","desc":"cutter","cat":"Onglerie","price":1.9,"moq":20,"remark":"5each","img":""},{"id":125,"group":"226#","ref":"BA-491","desc":"magnet","cat":"Onglerie","price":0.25,"moq":null,"remark":"","img":""},{"id":126,"group":"226#","ref":"BA-426","desc":"color chart stand","cat":"Onglerie","price":0.9,"moq":null,"remark":"","img":""},{"id":127,"group":"226#","ref":"BA-81","desc":"scissors","cat":"Salon de Coiffure et Barbier","price":1.7,"moq":70,"remark":"each 10","img":""},{"id":128,"group":"226#","ref":"BA-83","desc":"scissors","cat":"Salon de Coiffure et Barbier","price":1.7,"moq":70,"remark":"each 10","img":""},{"id":129,"group":"226#","ref":"BA-303","desc":"tweezers","cat":"Salon Accessories","price":0.7,"moq":30,"remark":"EACH 10PCS","img":""},{"id":130,"group":"226#","ref":"BA-434","desc":"drill bits","cat":"Onglerie","price":2.3,"moq":10,"remark":"","img":""},{"id":131,"group":"226#","ref":"BA-283","desc":"beauty brush","cat":"Cosmétiques","price":0.5,"moq":10,"remark":"","img":""},{"id":132,"group":"226#","ref":"BA-419","desc":"nail tips","cat":"Onglerie","price":2.1,"moq":20,"remark":"","img":""},{"id":133,"group":"226#","ref":"BA-493","desc":"drill bits","cat":"Onglerie","price":0.24,"moq":30,"remark":"","img":""},{"id":134,"group":"226#","ref":"BA-241","desc":"massage tool","cat":"Massage","price":2.2,"moq":10,"remark":"","img":""},{"id":135,"group":"226#","ref":"BA-415","desc":"steel plate","cat":"Onglerie","price":0.68,"moq":20,"remark":"","img":""},{"id":136,"group":"226#","ref":"BA-479","desc":"towel","cat":"Soins personnels","price":2.7,"moq":5,"remark":"GOOD ONE","img":""},{"id":137,"group":"226#","ref":"BA-429","desc":"sponge","cat":"Soins de la peau et des pieds","price":0.76,"moq":20,"remark":"WHITE","img":""},{"id":138,"group":"226#","ref":"BA-378","desc":"color chart stand","cat":"Onglerie","price":0.89,"moq":25,"remark":"PINK","img":""},{"id":139,"group":"227#","ref":"BA-377","desc":"display book","cat":"Rangement et organisateurs","price":0.65,"moq":30,"remark":"","img":""},{"id":140,"group":"227#","ref":"BA-264","desc":"bath tool","cat":"Soins de la peau et des pieds","price":0.3,"moq":25,"remark":"EACH 5","img":""},{"id":141,"group":"227#","ref":"BA-338","desc":"nail decoration","cat":"Onglerie","price":0.69,"moq":25,"remark":"","img":""},{"id":142,"group":"227#","ref":"BA-376","desc":"nail brush","cat":"Onglerie","price":0.65,"moq":75,"remark":"BLACK,WHITE,PINK EACH 25","img":""},{"id":143,"group":"227#","ref":"BA-247","desc":"color chart stand","cat":"Onglerie","price":0.92,"moq":20,"remark":"","img":""},{"id":144,"group":"227#","ref":"BA-268","desc":"comb","cat":"Cheveux","price":0.56,"moq":20,"remark":"5EACH","img":""},{"id":145,"group":"227#","ref":"BA-231","desc":"nail decoration","cat":"Onglerie","price":3.3,"moq":15,"remark":"","img":""},{"id":146,"group":"228#","ref":"BA-495","desc":"nail decoration","cat":"Onglerie","price":0.78,"moq":180,"remark":"20 EACH","img":""},{"id":147,"group":"228#","ref":"BA-240","desc":"gloves","cat":"Soins personnels","price":1.3,"moq":10,"remark":"","img":""},{"id":148,"group":"228#","ref":"BA-432","desc":"pusher","cat":"Onglerie","price":0.68,"moq":30,"remark":"","img":""},{"id":149,"group":"228#","ref":"BA-332","desc":"massage tool","cat":"Massage","price":0.5,"moq":30,"remark":"10each","img":""},{"id":150,"group":"228#","ref":"BA-99","desc":"drill bits","cat":"Onglerie","price":1.1,"moq":90,"remark":"EACH 30","img":""},{"id":151,"group":"228#","ref":"BA-475","desc":"eye cover","cat":"Extensions de cils","price":3.6,"moq":12,"remark":"","img":""},{"id":152,"group":"228#","ref":"BA-476","desc":"eye cover","cat":"Extensions de cils","price":3.0,"moq":12,"remark":"","img":""},{"id":153,"group":"228#","ref":"BA-477","desc":"eye cover","cat":"Extensions de cils","price":3.6,"moq":12,"remark":"","img":""},{"id":154,"group":"228#","ref":"BA-449","desc":"drill bits","cat":"Onglerie","price":0.56,"moq":50,"remark":"blue","img":""},{"id":155,"group":"228#","ref":"BA-253","desc":"dusty brush","cat":"Onglerie","price":0.072,"moq":150,"remark":"50EACH","img":""},{"id":156,"group":"229#","ref":"BA-366","desc":"toe separator","cat":"Soins de la peau et des pieds","price":0.68,"moq":120,"remark":"EACH 30","img":""},{"id":157,"group":"229#","ref":"BA-389","desc":"table lamp","cat":"Salon Accessories","price":5.7,"moq":6,"remark":"white","img":""},{"id":158,"group":"229#","ref":"BA-340","desc":"nail decoration","cat":"Onglerie","price":0.8,"moq":12,"remark":"10PCS PER BAG","img":""},{"id":159,"group":"229#","ref":"BA-233","desc":"sponge pick up tools","cat":"Onglerie","price":0.31,"moq":30,"remark":"SILVER,GOLD,BLACK EACH 10","img":""},{"id":160,"group":"229#","ref":"BA-388","desc":"nail brush","cat":"Onglerie","price":0.25,"moq":25,"remark":"","img":""},{"id":161,"group":"229#","ref":"BA-341","desc":"nail decoration","cat":"Onglerie","price":0.08,"moq":20,"remark":"","img":""},{"id":162,"group":"229#","ref":"BA-414","desc":"nail decoration","cat":"Onglerie","price":0.08,"moq":50,"remark":"","img":""},{"id":163,"group":"229#","ref":"BA-515","desc":"nail decoration","cat":"Onglerie","price":0.3,"moq":40,"remark":"EACH 10","img":""},{"id":164,"group":"229#","ref":"BA-238","desc":"drill bits","cat":"Onglerie","price":1.2,"moq":30,"remark":"","img":""},{"id":165,"group":"229#","ref":"BA-362","desc":"knife","cat":"Salon Accessories","price":0.1,"moq":3,"remark":"","img":""},{"id":166,"group":"229#","ref":"BA-411","desc":"paper form","cat":"Onglerie","price":2.2,"moq":30,"remark":"","img":""},{"id":167,"group":"230#","ref":"BA-445","desc":"nail brush","cat":"Onglerie","price":0.35,"moq":30,"remark":"","img":""},{"id":168,"group":"230#","ref":"BA-393","desc":"nail decoration","cat":"Onglerie","price":0.52,"moq":60,"remark":"","img":""},{"id":169,"group":"230#","ref":"BA-490","desc":"T-shirt","cat":"Non classé","price":3.3,"moq":25,"remark":"","img":""},{"id":170,"group":"230#","ref":"BA-236","desc":"nail decoration","cat":"Onglerie","price":0.45,"moq":200,"remark":"","img":""},{"id":171,"group":"230#","ref":"BA-123","desc":"drill bits","cat":"Onglerie","price":1.3,"moq":30,"remark":"5each","img":""},{"id":172,"group":"230#","ref":"BA-235","desc":"nail decoration","cat":"Onglerie","price":0.045,"moq":260,"remark":"","img":""},{"id":173,"group":"230#","ref":"BA-494","desc":"nail sticker","cat":"Onglerie","price":0.12,"moq":100,"remark":"","img":""},{"id":174,"group":"230#","ref":"BA-219","desc":"nail decoration","cat":"Onglerie","price":0.081,"moq":320,"remark":"","img":""},{"id":175,"group":"230#","ref":"BA-230","desc":"nail decoration","cat":"Onglerie","price":0.095,"moq":60,"remark":"","img":""},{"id":176,"group":"241#-248#","ref":"BA-525","desc":"lamp","cat":"Salon Accessories","price":19.5,"moq":1,"remark":"BLACK","img":""},{"id":177,"group":"249#-253#","ref":"BA-305","desc":"chair","cat":"Ameublement","price":16.5,"moq":1,"remark":"","img":""},{"id":178,"group":"254#-255#","ref":"BA-514","desc":"chair","cat":"Ameublement","price":16.5,"moq":1,"remark":"","img":""},{"id":179,"group":"259#-262#","ref":"BA-212","desc":"mask","cat":"Soins de la peau et des pieds","price":0.055,"moq":500,"remark":"100each","img":""},{"id":180,"group":"269#-274#","ref":"BA-526","desc":"chair","cat":"Ameublement","price":7.0,"moq":10,"remark":"BLACK","img":""},{"id":181,"group":"275#-279#","ref":"BA-355","desc":"chair","cat":"Ameublement","price":26.0,"moq":3,"remark":"BLACK5,PINK5,WHITE5","img":""},{"id":182,"group":"280#","ref":"BA-361","desc":"chair","cat":"Ameublement","price":16.5,"moq":6,"remark":"","img":""},{"id":183,"group":"281#","ref":"BA-361","desc":"chair","cat":"Ameublement","price":16.5,"moq":4,"remark":"","img":""},{"id":184,"group":"282#-287#","ref":"BA-483","desc":"shelf","cat":"Rangement et organisateurs","price":58.0,"moq":1,"remark":"","img":""},{"id":185,"group":"288#-289#","ref":"BA-511","desc":"foot rest","cat":"Soins de la peau et des pieds","price":42.0,"moq":1,"remark":"","img":""},{"id":186,"group":"290#","ref":"BA-486","desc":"plastic box","cat":"Rangement et organisateurs","price":1.42,"moq":50,"remark":"","img":""},{"id":187,"group":"291#","ref":"BA-369","desc":"uv lamp","cat":"Onglerie","price":13.5,"moq":10,"remark":"","img":""},{"id":188,"group":"292#","ref":"BA-252","desc":"glue","cat":"Onglerie","price":0.24,"moq":240,"remark":"","img":""},{"id":189,"group":"293#-294#","ref":"BA-279","desc":"mask","cat":"Soins de la peau et des pieds","price":0.99,"moq":180,"remark":"Aloe Vera, Rose, Collagen — 25EACH","img":""},{"id":190,"group":"295#","ref":"BA-279","desc":"mask","cat":"Soins de la peau et des pieds","price":0.99,"moq":90,"remark":"","img":""},{"id":191,"group":"296#","ref":"BA-197","desc":"glass cup","cat":"Salon Accessories","price":0.069,"moq":400,"remark":"","img":""},{"id":192,"group":"299#","ref":"BA-334","desc":"massage tool","cat":"Massage","price":0.72,"moq":10,"remark":"","img":""},{"id":193,"group":"299#","ref":"BA-442","desc":"plastic box","cat":"Rangement et organisateurs","price":5.0,"moq":2,"remark":"","img":""},{"id":194,"group":"299#","ref":"BA-516","desc":"nail decoration","cat":"Onglerie","price":0.21,"moq":150,"remark":"","img":""},{"id":195,"group":"299#","ref":"BA-333","desc":"massage tool","cat":"Massage","price":0.95,"moq":10,"remark":"","img":""},{"id":196,"group":"299#","ref":"BA-101","desc":"nail brush","cat":"Onglerie","price":0.125,"moq":50,"remark":"","img":""},{"id":197,"group":"299#","ref":"BA-513","desc":"drill bits","cat":"Onglerie","price":0.56,"moq":50,"remark":"BLUE","img":""},{"id":198,"group":"299#","ref":"BA-107","desc":"nail brush","cat":"Onglerie","price":1.4,"moq":25,"remark":"","img":""},{"id":199,"group":"299#","ref":"BA-528","desc":"nail cutter","cat":"Onglerie","price":0.95,"moq":50,"remark":"","img":""},{"id":200,"group":"299#","ref":"BA-492","desc":"sand beads","cat":"Onglerie","price":1.35,"moq":50,"remark":"","img":""},{"id":201,"group":"323#","ref":"BA-249","desc":"storage bag","cat":"Rangement et organisateurs","price":5.3,"moq":20,"remark":"","img":""},{"id":202,"group":"324#","ref":"BA-66","desc":"sponge","cat":"Soins de la peau et des pieds","price":0.04,"moq":100,"remark":"black","img":""},{"id":203,"group":"326#","ref":"BA-261","desc":"trolley","cat":"Rangement et organisateurs","price":19.8,"moq":1,"remark":"5BLACK,5WHITE","img":""},{"id":204,"group":"335#-341#","ref":"BA-195","desc":"massage bed","cat":"Massage","price":28.0,"moq":1,"remark":"180x60x65cm","img":""},{"id":205,"group":"342#-343#","ref":"BA-324","desc":"jelly mask","cat":"Soins de la peau et des pieds","price":2.4,"moq":48,"remark":"Aloe, Rose, Collagen, Tea Tree, Vitamin C","img":""},{"id":206,"group":"344#","ref":"BA-324","desc":"jelly mask","cat":"Soins de la peau et des pieds","price":2.4,"moq":9,"remark":"","img":""},{"id":207,"group":"372#-375#","ref":"BA-400","desc":"manicure table","cat":"Ameublement","price":32.0,"moq":1,"remark":"100CM","img":""},{"id":208,"group":"392#-393#","ref":"BA-529","desc":"paper bag","cat":"Rangement et organisateurs","price":0.18,"moq":500,"remark":"26X12X31","img":""},{"id":209,"group":"394#","ref":"BA-529","desc":"paper bag","cat":"Rangement et organisateurs","price":0.18,"moq":545,"remark":"26X12X31","img":""},{"id":210,"group":"395#","ref":"BA-529","desc":"paper bag","cat":"Rangement et organisateurs","price":0.18,"moq":550,"remark":"26X12X31","img":""},{"id":211,"group":"396#","ref":"BA-534","desc":"plastic rings","cat":"Rangement et organisateurs","price":0.3,"moq":200,"remark":"","img":""},{"id":212,"group":"397#-399#","ref":"BA-440","desc":"lamp","cat":"Salon Accessories","price":36.0,"moq":3,"remark":"10 BLACK 28INCH","img":""},{"id":213,"group":"400#","ref":"BA-440","desc":"lamp","cat":"Salon Accessories","price":36.0,"moq":1,"remark":"10 BLACK 28INCH","img":""}];
+
+let qtys={}, nextId=214, activeTab='all', sortKey=null, sortAsc=true;
+let parsedRows=[], parsedHeaders=[];
+
+// ─── PERSIST ──────────────────────────────────────────────────────────────────
+function save(){try{localStorage.setItem('bg_cat2',JSON.stringify(catalogue));localStorage.setItem('bg_qty2',JSON.stringify(qtys));}catch(e){}}
+function loadSaved(){
+  try{
+    const c=localStorage.getItem('bg_cat2'),q=localStorage.getItem('bg_qty2');
+    if(c){catalogue=JSON.parse(c);nextId=Math.max(...catalogue.map(r=>r.id),213)+1;}
+    if(q)qtys=JSON.parse(q);
+  }catch(e){}
+}
+
+// ─── PHOTO HANDLING ───────────────────────────────────────────────────────────
+function handlePhotoDrop(e, id) {
+  e.preventDefault();
+  const el = e.currentTarget;
+  el.classList.remove('dragover');
+  const file = e.dataTransfer?.files?.[0] || e.target?.files?.[0];
+  if (!file || !file.type.startsWith('image/')) return;
+  readImgFile(file, id);
+}
+function handlePhotoFile(input, id) {
+  const file = input.files[0];
+  if (file) readImgFile(file, id);
+}
+function readImgFile(file, id) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    const item = catalogue.find(r => r.id === id);
+    if (item) {
+      item.img = e.target.result; // base64 stored in localStorage
+      save();
+      render();
+      toast('Photo ajoutée pour ' + item.ref);
+    }
+  };
+  reader.readAsDataURL(file);
+}
+function removePhoto(id) {
+  const item = catalogue.find(r => r.id === id);
+  if (item) { item.img = ''; save(); render(); }
+}
+
+// ─── IMPORT EXCEL ─────────────────────────────────────────────────────────────
+function toggleImport(){document.getElementById('impPanel').classList.toggle('open');}
+function handleXlsDrop(e){e.preventDefault();document.getElementById('dz').classList.remove('drag');if(e.dataTransfer.files[0])handleXlsFile(e.dataTransfer.files[0]);}
+
+const ALIASES={
+  ref:   ['item no','item no.','ref','reference','sku','code'],
+  desc:  ['dec','desc','description','product','libelle','libellé','name'],
+  price: ['price','prix','unit price','prix unit','cost'],
+  moq:   ['pcs/ctn','moq','pcs per ctn','qty/ctn','pack'],
+  group: ['ctn no','ctn no.','group','carton','lot'],
+  cat:   ['category','categorie','catégorie','cat'],
+  remark:['remark','remarks','note','notes','comment'],
+  img:   ['image','img','photo','url','pic','image url']
+};
+function matchCol(h){const lh=h.toLowerCase().trim();for(const[f,als]of Object.entries(ALIASES)){if(als.some(a=>lh.includes(a)||a.includes(lh)))return f;}return null;}
+
+function handleXlsFile(file){
+  const log=document.getElementById('ilog');
+  log.style.display='block';log.textContent=`"${file.name}" en cours...\n`;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const wb=XLSX.read(e.target.result,{type:'array'});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const data=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+      let hr=-1;
+      for(let i=0;i<Math.min(10,data.length);i++){if(data[i].filter(c=>String(c).trim()!=='').length>=3){hr=i;break;}}
+      if(hr<0){log.textContent+='❌ En-tête introuvable.\n';return;}
+      parsedHeaders=data[hr].map(h=>String(h).trim());
+      parsedRows=data.slice(hr+1).filter(r=>r.some(c=>String(c).trim()!==''));
+      log.textContent+=`✓ ${parsedRows.length} lignes · Colonnes : ${parsedHeaders.filter(h=>h).join(' | ')}\n`;
+      const am={};parsedHeaders.forEach((h,i)=>{const f=matchCol(h);if(f&&am[f]===undefined)am[f]=i;});
+      log.textContent+=`✓ Mapping : ${Object.entries(am).map(([k,v])=>`${k}→"${parsedHeaders[v]}"`).join(', ')}\n`;
+      buildMapper(am);
+    }catch(err){log.textContent+=`❌ ${err.message}\n`;}
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function buildMapper(am){
+  const g=document.getElementById('cmg');
+  const fields=[{key:'ref',label:'Référence *'},{key:'desc',label:'Description'},{key:'price',label:'Prix ($)'},{key:'moq',label:'MOQ/PCS'},{key:'group',label:'Groupe CTN'},{key:'cat',label:'Catégorie'},{key:'remark',label:'Remarque'},{key:'img',label:'URL Photo'}];
+  const opts=['— ignorer —',...parsedHeaders.map((h,i)=>`${i+1}. ${h}`)];
+  g.innerHTML=fields.map(f=>{
+    const sel=opts.map((o,oi)=>{const ci=oi-1;return`<option value="${ci}"${am[f.key]===ci?' selected':''}>${o}</option>`;}).join('');
+    return`<div class="cmf"><label>${f.label}</label><select id="cm_${f.key}">${sel}</select></div>`;
+  }).join('');
+  document.getElementById('cmap').style.display='block';
+  document.getElementById('ires').textContent='';
+}
+
+function runImport(){
+  const gc=k=>parseInt(document.getElementById('cm_'+k).value);
+  const rC=gc('ref'),dC=gc('desc'),pC=gc('price'),mC=gc('moq'),gC=gc('group'),cC=gc('cat'),rkC=gc('remark'),iC=gc('img');
+  if(rC<0){alert('Colonne Référence obligatoire.');return;}
+  let added=0,updated=0,skipped=0;
+  parsedRows.forEach(row=>{
+    const ref=String(row[rC]||'').trim();
+    if(!ref||/item.?no/i.test(ref))return;
+    const desc=dC>=0?String(row[dC]||'').trim():'';
+    const price=pC>=0&&row[pC]!==''?parseFloat(String(row[pC]).replace(',','.'))||null:null;
+    const moq=mC>=0&&row[mC]!==''?parseInt(row[mC])||null:null;
+    const group=gC>=0?String(row[gC]||'').trim():'';
+    const cat=cC>=0?String(row[cC]||'').trim():'';
+    const remark=rkC>=0?String(row[rkC]||'').trim():'';
+    const img=iC>=0?String(row[iC]||'').trim():'';
+    const ex=catalogue.find(c=>c.ref===ref);
+    if(ex){
+      let ch=false;
+      if(price!==null&&ex.price!==price){ex.price=price;ch=true;}
+      if(moq!==null&&ex.moq!==moq){ex.moq=moq;ch=true;}
+      if(group&&ex.group!==group){ex.group=group;ch=true;}
+      if(desc&&ex.desc!==desc){ex.desc=desc;ch=true;}
+      if(cat&&!ex.cat){ex.cat=cat;ch=true;}
+      if(remark&&!ex.remark){ex.remark=remark;ch=true;}
+      if(img&&!ex.img){ex.img=img;ch=true;}
+      ch?updated++:skipped++;
+    }else{
+      catalogue.push({id:nextId++,group,ref,desc:desc||ref,cat:cat||'Non classé',price,moq,remark,img});
+      added++;
+    }
+  });
+  save();render();
+  const msg=`✅ ${added} ajoutés · ${updated} mis à jour · ${skipped} inchangés`;
+  document.getElementById('ires').textContent=msg;
+  document.getElementById('ilog').textContent+=msg+'\n';
+  toast(msg);
+}
+
+function exportCat(){
+  const blob=new Blob([JSON.stringify(catalogue,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download='bglam_catalogue_'+new Date().toISOString().slice(0,10)+'.json';a.click();
+  toast('Backup téléchargé');
+}
+
+// ─── RENDER ───────────────────────────────────────────────────────────────────
+function getFiltered(){
+  const q=document.getElementById('srch').value.toLowerCase();
+  const fc=document.getElementById('fCat').value;
+  const os=document.getElementById('fSel').checked;
+  let rows=catalogue.filter(r=>{
+    if(activeTab==='Non classé'&&r.cat&&r.cat!=='Non classé')return false;
+    if(activeTab!=='all'&&activeTab!=='Non classé'&&r.cat!==activeTab)return false;
+    if(fc&&r.cat!==fc)return false;
+    if(os&&!(qtys[r.id]>0))return false;
+    if(q&&![(r.ref||''),(r.desc||''),(r.remark||''),(r.group||''),(r.cat||'')].some(s=>s.toLowerCase().includes(q)))return false;
+    return true;
+  });
+  if(sortKey)rows=rows.sort((a,b)=>{const av=a[sortKey]??'',bv=b[sortKey]??'';return typeof av==='number'?(sortAsc?av-bv:bv-av):(sortAsc?String(av).localeCompare(String(bv)):String(bv).localeCompare(String(av)));});
+  return rows;
+}
+function sortBy(k){sortKey===k?sortAsc=!sortAsc:(sortKey=k,sortAsc=true);render();}
+
+function renderTabs(){
+  const usedCats=['all',...CATS.filter(c=>catalogue.some(r=>r.cat===c||(!r.cat&&c==='Non classé')))];
+  document.getElementById('tabs').innerHTML=usedCats.map(c=>{
+    const lbl=c==='all'?'Tous':c;
+    const cnt=c==='all'?catalogue.length:catalogue.filter(r=>c==='Non classé'?(r.cat===c||!r.cat):r.cat===c).length;
+    const sc=c==='all'?catalogue.filter(r=>qtys[r.id]>0).length:catalogue.filter(r=>(c==='Non classé'?(r.cat===c||!r.cat):r.cat===c)&&qtys[r.id]>0).length;
+    return`<div class="tab${activeTab===c?' active':''}" onclick="setTab(${JSON.stringify(c)})">${lbl} <span style="opacity:.5;font-size:10px">${cnt}</span>${sc?` <span style="color:#4ade80;font-size:10px">●${sc}</span>`:''}</div>`;
+  }).join('');
+}
+function setTab(t){activeTab=t;render();}
+
+// Category select for inline editing
+function catSelectHtml(id, current) {
+  const opts = CATS.map(c => `<option value="${c}"${c===current?' selected':''}>${c}</option>`).join('');
+  return `<select style="font-size:11px;border:1px solid #ddd;border-radius:3px;padding:2px 4px;max-width:160px" onchange="setCat(${id},this.value)">${opts}</select>`;
+}
+function setCat(id, val){const it=catalogue.find(r=>r.id===id);if(it){it.cat=val;save();render();}}
+
+function render(){
+  renderTabs();
+  const rows=getFiltered();
+  // Update cat filter dropdown
+  const fc=document.getElementById('fCat'),cur=fc.value;
+  fc.innerHTML='<option value="">Toutes catégories</option>'+CATS.map(c=>`<option value="${c}"${cur===c?' selected':''}>${c}</option>`).join('');
+  const tbody=document.getElementById('tbody'),emsg=document.getElementById('emsg'),tbl=document.getElementById('mainTbl');
+  if(!rows.length){tbody.innerHTML='';emsg.style.display='block';tbl.style.display='none';return;}
+  emsg.style.display='none';tbl.style.display='';
+  tbody.innerHTML=rows.map((r,i)=>{
+    const qty=qtys[r.id]||0;
+    const sub=r.price!=null&&qty>0?qty*r.price:null;
+    // Photo cell with drag-drop
+    const photoHtml=r.img
+      ?`<div class="photo-cell">
+          <img src="${r.img}" alt="${r.ref}" onclick="zoomImg(${JSON.stringify(r.img)},${JSON.stringify(r.ref)})">
+          <button class="photo-rm" onclick="removePhoto(${r.id})">✕</button>
+        </div>`
+      :`<div class="photo-drop"
+          ondragover="event.preventDefault();this.classList.add('dragover')"
+          ondragleave="this.classList.remove('dragover')"
+          ondrop="handlePhotoDrop(event,${r.id})">
+          <input type="file" accept="image/*" onchange="handlePhotoFile(this,${r.id})">
+          <span>+</span>
+        </div>`;
+    const catCls=catClass(r.cat||'Non classé');
+    return`<tr class="${qty>0?'hq':''}">
+      <td style="color:#aaa;font-size:10px">${i+1}</td>
+      <td>${photoHtml}</td>
+      <td class="rc">${r.ref}</td>
+      <td>${r.desc||'—'}</td>
+      <td>${catSelectHtml(r.id,r.cat||'Non classé')}</td>
+      <td><span class="gb">${r.group||'—'}</span></td>
+      <td style="text-align:right;white-space:nowrap">${r.price!=null?'$'+r.price.toFixed(3):'<span class="nop">—</span>'}</td>
+      <td style="text-align:right;color:#888">${r.moq!=null?r.moq:'—'}</td>
+      <td class="rmcell" title="${r.remark||''}">${r.remark||''}</td>
+      <td style="text-align:center"><input class="qi" type="number" min="0" step="1" value="${qty||''}" placeholder="0" oninput="setQty(${r.id},this.value)"></td>
+      <td style="text-align:right">${sub!=null?`<span class="sub">$${sub.toFixed(2)}</span>`:'<span style="color:#ddd">—</span>'}</td>
+      <td><button class="bsm bdel" onclick="removeRow(${r.id})">✕</button></td>
+    </tr>`;
+  }).join('');
+  const sel=catalogue.filter(r=>qtys[r.id]>0&&r.price!=null);
+  if(sel.length){
+    const tQ=sel.reduce((s,r)=>s+(qtys[r.id]||0),0),tA=sel.reduce((s,r)=>s+(qtys[r.id]||0)*r.price,0);
+    tbody.innerHTML+=`<tr class="trow"><td colspan="9" style="text-align:right;font-size:11px">TOTAL — ${sel.length} réf · ${tQ} pcs</td><td style="text-align:center">${tQ}</td><td class="ta" style="text-align:right">$${tA.toFixed(2)}</td><td></td></tr>`;
+  }
+  updateMetrics();
+  document.getElementById('catalogCount').textContent=catalogue.length+' références';
+  document.getElementById('metCat').textContent=catalogue.length;
+}
+
+function updateMetrics(){
+  const sel=catalogue.filter(r=>qtys[r.id]>0);
+  document.getElementById('metCount').textContent=sel.length;
+  document.getElementById('metQty').textContent=sel.reduce((s,r)=>s+(qtys[r.id]||0),0);
+  document.getElementById('metTotal').textContent='$'+sel.filter(r=>r.price!=null).reduce((s,r)=>s+(qtys[r.id]||0)*r.price,0).toFixed(2);
+}
+
+function setQty(id,val){const n=parseInt(val)||0;n<=0?delete qtys[id]:qtys[id]=n;save();updateMetrics();}
+function resetQty(){if(!Object.keys(qtys).length)return;if(!confirm('Réinitialiser toutes les quantités ?'))return;qtys={};save();render();}
+function removeRow(id){if(!confirm('Supprimer cette référence du catalogue ?'))return;catalogue=catalogue.filter(r=>r.id!==id);delete qtys[id];save();render();}
+function toggleAdd(){document.getElementById('addPanel').classList.toggle('open');}
+function addRow(){
+  const ref=document.getElementById('nRef').value.trim(),desc=document.getElementById('nDesc').value.trim();
+  if(!ref){alert('Référence requise');return;}
+  catalogue.push({id:nextId++,group:document.getElementById('nGroup').value.trim(),ref,desc:desc||ref,cat:document.getElementById('nCat').value,price:parseFloat(document.getElementById('nPrice').value)||null,moq:parseInt(document.getElementById('nMoq').value)||null,remark:document.getElementById('nRemark').value.trim(),img:''});
+  ['nRef','nDesc','nGroup','nPrice','nMoq','nRemark'].forEach(id=>{document.getElementById(id).value='';});
+  save();render();toast('Produit ajouté');
+}
+function zoomImg(url,ref){document.getElementById('modBody').innerHTML=`<p style="font-weight:700;margin-bottom:10px">${ref}</p><img src="${url}" style="max-width:100%;max-height:360px;object-fit:contain;border-radius:4px">`;document.getElementById('photoOv').classList.add('open');}
+function closeMod(){document.getElementById('photoOv').classList.remove('open');}
+
+// ─── PRINT PREVIEW (avec photos) ──────────────────────────────────────────────
+function showPrint(){
+  const sel=catalogue.filter(r=>qtys[r.id]>0);
+  if(!sel.length){alert('Aucun article sélectionné.');return;}
+  const name=document.getElementById('orderName').value.trim()||'Commande BGlam';
+  const date=new Date().toLocaleDateString('fr-FR');
+  const tQ=sel.reduce((s,r)=>s+(qtys[r.id]||0),0);
+  const tA=sel.filter(r=>r.price!=null).reduce((s,r)=>s+(qtys[r.id]||0)*r.price,0);
+  document.getElementById('printTitle').textContent=name+' — '+date;
+  document.getElementById('printContent').innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px">
+      <div>
+        <h2 style="font-size:18px;font-weight:700;color:#1a1a2e">BGlam — Bon de Commande</h2>
+        <p style="color:#666;font-size:13px;margin-top:4px">${name} · ${date}</p>
+      </div>
+      <div style="text-align:right;font-size:13px;color:#555">
+        <div>${sel.length} références · ${tQ} pcs</div>
+        <div style="font-size:20px;font-weight:700;color:#0F6E56;margin-top:4px">$${tA.toFixed(2)}</div>
+      </div>
+    </div>
+    <table style="width:100%;border-collapse:collapse;font-size:12px">
+      <thead>
+        <tr style="background:#1a1a2e;color:#fff">
+          <th style="padding:8px;text-align:left;width:60px">Photo</th>
+          <th style="padding:8px;text-align:left">Réf</th>
+          <th style="padding:8px;text-align:left">Description</th>
+          <th style="padding:8px;text-align:left">Catégorie</th>
+          <th style="padding:8px;text-align:left">Groupe</th>
+          <th style="padding:8px;text-align:right">Prix</th>
+          <th style="padding:8px;text-align:right">MOQ</th>
+          <th style="padding:8px;text-align:right">Qté</th>
+          <th style="padding:8px;text-align:right">Total</th>
+          <th style="padding:8px;text-align:left">Remarque</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${sel.map((r,i)=>{
+          const qty=qtys[r.id]||0,amt=r.price!=null?qty*r.price:null;
+          const imgHtml=r.img?`<img src="${r.img}" style="width:48px;height:48px;object-fit:cover;border-radius:4px;border:1px solid #eee">`:`<div style="width:48px;height:48px;background:#f5f5f5;border-radius:4px;border:1px dashed #ddd;display:flex;align-items:center;justify-content:center;font-size:18px;color:#ddd">?</div>`;
+          return`<tr style="border-bottom:1px solid #f0f0f0;background:${i%2?'#fafafa':'#fff'}">
+            <td style="padding:6px 8px">${imgHtml}</td>
+            <td style="padding:6px 8px;font-weight:700;color:#1a1a2e">${r.ref}</td>
+            <td style="padding:6px 8px">${r.desc}</td>
+            <td style="padding:6px 8px;font-size:11px;color:#666">${r.cat||'—'}</td>
+            <td style="padding:6px 8px;font-size:11px;color:#888">${r.group||'—'}</td>
+            <td style="padding:6px 8px;text-align:right">${r.price!=null?'$'+r.price.toFixed(3):'—'}</td>
+            <td style="padding:6px 8px;text-align:right;color:#888">${r.moq!=null?r.moq:'—'}</td>
+            <td style="padding:6px 8px;text-align:right;font-weight:700">${qty}</td>
+            <td style="padding:6px 8px;text-align:right;font-weight:700;color:#0F6E56">${amt!=null?'$'+amt.toFixed(2):'—'}</td>
+            <td style="padding:6px 8px;font-size:11px;color:#888">${r.remark||''}</td>
+          </tr>`;
+        }).join('')}
+        <tr style="background:#1a1a2e;color:#fff;font-weight:700">
+          <td colspan="7" style="padding:10px 8px;text-align:right">TOTAL</td>
+          <td style="padding:10px 8px;text-align:right">${tQ}</td>
+          <td style="padding:10px 8px;text-align:right;color:#4ade80;font-size:15px">$${tA.toFixed(2)}</td>
+          <td></td>
+        </tr>
+      </tbody>
+    </table>`;
+  document.getElementById('printOv').classList.add('open');
+}
+function closePrint(){document.getElementById('printOv').classList.remove('open');}
+
+// ─── EXPORT EXCEL ─────────────────────────────────────────────────────────────
+function exportXLS(){
+  const sel=catalogue.filter(r=>qtys[r.id]>0);
+  if(!sel.length){alert('Aucun article sélectionné.');return;}
+  const name=document.getElementById('orderName').value.trim()||'Commande BGlam';
+  const date=new Date().toLocaleDateString('fr-FR');
+  const aoa=[
+    ['BGlam — Bon de Commande'],
+    ['Commande :',name,'','Date :',date],
+    [],
+    ['CTN NO','ITEM NO','DEC','CATEGORIE','PRICE','PCS/CTN','CTN','QUANTITY','AMOUNT','REMARK','PHOTO URL']
+  ];
+  let total=0;
+  sel.forEach(r=>{
+    const qty=qtys[r.id]||0,amt=r.price!=null?parseFloat((qty*r.price).toFixed(2)):null;
+    if(amt)total+=amt;
+    // img: if base64, note "Photo locale"; if URL, use it
+    const imgRef=r.img?(r.img.startsWith('data:')?'[Photo locale]':r.img):'';
+    aoa.push([r.group,r.ref,r.desc,r.cat||'',r.price,r.moq,'',qty,amt,r.remark,imgRef]);
+  });
+  aoa.push([]);
+  aoa.push(['','','','','','','',sel.reduce((s,r)=>s+(qtys[r.id]||0),0),parseFloat(total.toFixed(2)),'← TOTAL','']);
+  const ws=XLSX.utils.aoa_to_sheet(aoa);
+  ws['!cols']=[{wch:12},{wch:12},{wch:24},{wch:22},{wch:10},{wch:10},{wch:6},{wch:10},{wch:12},{wch:35},{wch:30}];
+  ws['!merges']=[{s:{r:0,c:0},e:{r:0,c:10}}];
+  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Commande');
+  XLSX.writeFile(wb,name.replace(/[^a-zA-Z0-9_\- ]/g,'_')+'_'+date.replace(/\//g,'-')+'.xlsx');
+  toast('Excel exporté');
+}
+
+function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3000);}
+
+loadSaved();render();
+</script>
+</body>
+</html>
