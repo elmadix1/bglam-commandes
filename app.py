@@ -215,7 +215,6 @@ def extract_images():
                         img_map[r] = 'data:image/png;base64,' + base64.b64encode(d).decode()
             except: pass
         result = {}
-        url_map = {}  # ref -> github URL
         for img_row, b64 in img_map.items():
             ref = row_to_ref.get(img_row)
             if not ref:
@@ -224,15 +223,26 @@ def extract_images():
                     if ref: break
             if ref and ref not in result:
                 result[ref] = b64
-                # Upload to GitHub if token available
-                if GITHUB_TOKEN:
-                    url = upload_image_to_github(ref, b64)
-                    if url:
-                        url_map[ref] = url
+
+        # Upload to GitHub in background thread (non-blocking)
+        if GITHUB_TOKEN and result:
+            import threading
+            def upload_all():
+                for ref, b64 in result.items():
+                    upload_image_to_github(ref, b64)
+            t = threading.Thread(target=upload_all, daemon=True)
+            t.start()
+
+        # Build URL map based on what will be uploaded
+        url_map = {}
+        if GITHUB_TOKEN:
+            for ref in result:
+                safe_ref = re.sub(r'[^a-zA-Z0-9_\-]', '_', ref)
+                url_map[ref] = f"{IMAGES_BASE_URL}/{safe_ref}.jpg"
 
         return jsonify({
             "images": result,
-            "urls": url_map,  # GitHub URLs for permanent storage
+            "urls": url_map,
             "matched": len(result),
             "total_images": len(img_map),
             "total_refs": len(row_to_ref)
