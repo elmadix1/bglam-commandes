@@ -277,32 +277,28 @@ def extract_images():
                     if ref: break
             if ref:
                 ref_count[ref] = ref_count.get(ref, 0) + 1
-                if ref not in result:
-                    result[ref] = b64
-                    if group:
-                        ref_groups[ref] = group
+                img_key = (ref + '_' + group) if group else ref
+                if img_key not in result:
+                    result[img_key] = b64
+                    ref_groups[img_key] = group or ''
+
 
         # Upload to GitHub in background thread (non-blocking)
         if GITHUB_TOKEN and result:
             import threading
             rc = dict(ref_count)
             rg = dict(ref_groups)
-            def upload_all(result=result, rc=rc, rg=rg):
-                for ref, b64 in result.items():
-                    group = rg.get(ref, '')
-                    file_key = (ref + '_' + group) if group else ref
-                    upload_image_to_github(file_key, b64)
+            def upload_all(result=result):
+                for img_key, b64 in result.items():
+                    upload_image_to_github(img_key, b64)
             t = threading.Thread(target=upload_all, daemon=True)
             t.start()
 
         url_map = {}
         if GITHUB_TOKEN:
-            for ref in result:
-                group = ref_groups.get(ref, '')
-                # Always use ref+group as filename to avoid collisions
-                file_key = (ref + '_' + group) if group else ref
-                safe_key = re.sub(r'[^a-zA-Z0-9_-]', '_', file_key)
-                url_map[ref] = f"{IMAGES_BASE_URL}/{safe_key}.jpg"
+            for img_key in result:
+                safe_key = re.sub(r'[^a-zA-Z0-9_-]', '_', img_key)
+                url_map[img_key] = f"{IMAGES_BASE_URL}/{safe_key}.jpg"
 
         return jsonify({
             "images": result,
