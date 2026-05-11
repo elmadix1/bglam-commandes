@@ -323,7 +323,16 @@ function runImport(){
     var cat=cC>=0?String(row[cC]||'').trim():'';
     var remark=rkC>=0?String(row[rkC]||'').trim():'';
     var img=iC>=0?String(row[iC]||'').trim():'';
-    var ex=catalogue.find(function(c){return c.ref===ref;});
+    // Find existing entry with same ref AND same description (or no desc conflict)
+    var ex = catalogue.find(function(c){
+      return c.ref === ref && (c.desc === (desc||ref) || !desc || c.desc === ref);
+    });
+    // Also check for same ref + same group
+    if(!ex) ex = catalogue.find(function(c){ return c.ref===ref && c.group===group; });
+    
+    var githubUrl = pendingUrlMap[ref] || '';
+    var imgData = githubUrl || pendingImageMap[ref] || '';
+    
     if(ex){
       var ch=false;
       if(price!==null&&ex.price!==price){ex.price=price;ch=true;}
@@ -332,14 +341,18 @@ function runImport(){
       if(desc&&ex.desc!==desc){ex.desc=desc;ch=true;}
       if(cat&&!ex.cat){ex.cat=cat;ch=true;}
       if(remark&&!ex.remark){ex.remark=remark;ch=true;}
-      // Use GitHub URL if available, otherwise base64
-      var githubUrl = pendingUrlMap[ref] || '';
-      var imgData = githubUrl || pendingImageMap[ref] || '';
       if(imgData&&!ex.img){ex.img=imgData;ch=true;}
       ch?updated++:skipped++;
-    }else{
-      var githubUrl2 = pendingUrlMap[ref] || '';
-      catalogue.push({id:nextId++,group:group,ref:ref,desc:desc||ref,cat:cat||'Non classé',price:price,moq:moq,remark:remark,img:githubUrl2||pendingImageMap[ref]||''});
+    } else {
+      // Check if ref already exists with different desc/group → create with group suffix
+      var anyEx = catalogue.find(function(c){ return c.ref===ref; });
+      var finalRef = ref;
+      if(anyEx && group) finalRef = ref+' ('+group+')';
+      // Also rename existing entry if it has no group suffix yet
+      if(anyEx && group && anyEx.group && anyEx.ref === ref) {
+        anyEx.ref = ref+' ('+(anyEx.group)+')';
+      }
+      catalogue.push({id:nextId++,group:group,ref:finalRef,desc:desc||ref,cat:cat||'Non classé',price:price,moq:moq,remark:remark,img:imgData});
       added++;
     }
   });
