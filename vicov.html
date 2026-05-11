@@ -200,24 +200,43 @@ var CATS=['Onglerie','Extensions de cils','Accessoires pour cils','Cheveux','Soi
 var catalogue=[], qtys={}, nextId=1, activeTab='all', sortKey=null, sortAsc=true, parsedRows=[], parsedHeaders=[];
 
 function save(){
-  try {
-    // Strip base64 images before saving to avoid localStorage quota
-    var lightCat = catalogue.map(function(r){
-      var copy = Object.assign({}, r);
-      if(copy.img && copy.img.indexOf('data:') === 0) {
-        copy.img = ''; // don't store base64 in localStorage - too heavy
-      }
-      return copy;
-    });
-    localStorage.setItem('bg_cat_'+SK, JSON.stringify(lightCat));
-    localStorage.setItem('bg_qty_'+SK, JSON.stringify(qtys));
-  } catch(e) {
-    // localStorage full - try saving just qtys
-    try { localStorage.setItem('bg_qty_'+SK, JSON.stringify(qtys)); } catch(e2) {}
-    console.warn('localStorage full - catalogue not saved');
-  }
+  // Save qtys locally (small)
+  try { localStorage.setItem('bg_qty_'+SK, JSON.stringify(qtys)); } catch(e) {}
+  // Save catalogue to server (handles large catalogues)
+  saveCatalogueToServer();
 }
-function loadSaved(){try{var c=localStorage.getItem('bg_cat_'+SK),q=localStorage.getItem('bg_qty_'+SK);if(c){catalogue=JSON.parse(c);var ids=catalogue.map(function(r){return r.id;});nextId=(ids.length?Math.max.apply(null,ids):0)+1;}if(q)qtys=JSON.parse(q);}catch(e){}}
+
+function saveCatalogueToServer(){
+  if(!catalogue.length) return;
+  fetch(BACKEND_URL+'/catalogue/'+SK+'/save', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({items: catalogue})
+  }).catch(function(){});
+}
+function loadSaved(){
+  // Load qtys from localStorage (small, fast)
+  try {
+    var q = localStorage.getItem('bg_qty_'+SK);
+    if(q) qtys = JSON.parse(q);
+  } catch(e) {}
+  // Load catalogue from server
+  fetch(BACKEND_URL+'/catalogue/'+SK+'/load')
+    .then(function(r){ return r.json(); })
+    .then(function(data){
+      if(data.ok && data.items && data.items.length > 0){
+        catalogue = data.items;
+        var ids = catalogue.map(function(r){ return r.id; });
+        nextId = (ids.length ? Math.max.apply(null,ids) : 0) + 1;
+        toast('Catalogue chargé : '+catalogue.length+' références');
+      }
+      render();
+    })
+    .catch(function(){
+      // Server unavailable - start empty
+      render();
+    });
+}
 
 function handlePhotoDrop(e,id){e.preventDefault();e.currentTarget.classList.remove('dragover');var f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0];if(f&&f.type.indexOf('image/')===0)readImg(f,id);}
 function handlePhotoFile(inp,id){if(inp.files[0])readImg(inp.files[0],id);}
@@ -521,7 +540,7 @@ function exportXLSLocal(sel,name,date){
 }
 
 function toast(msg){var t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(function(){t.classList.remove('show');},3000);}
-loadSaved();render();
+loadSaved();
 </script>
 </body>
 </html>

@@ -15,260 +15,234 @@ GREEN = "1D9E75"
 WHITE = "FFFFFF"
 LGREY = "F7F7F7"
 
-def hex_fill(hex_color):
-    return PatternFill("solid", fgColor=hex_color)
+DATABASE_URL = os.environ.get('DATABASE_URL')
 
+def get_db():
+    import psycopg2
+    return psycopg2.connect(DATABASE_URL)
+
+def init_db():
+    if not DATABASE_URL:
+        return
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute('''
+            CREATE TABLE IF NOT EXISTS catalogues (
+                supplier   VARCHAR(50) PRIMARY KEY,
+                items      TEXT NOT NULL,
+                updated_at TIMESTAMP DEFAULT NOW()
+            )
+        ''')
+        conn.commit()
+        cur.close()
+        conn.close()
+        print("DB init OK")
+    except Exception as e:
+        print(f"DB init error: {e}")
+
+init_db()
+
+def hex_fill(h): return PatternFill("solid", fgColor=h)
 def thin_border():
     s = Side(style="thin", color="DDDDDD")
     return Border(left=s, right=s, top=s, bottom=s)
-
-def base64_to_pil(b64_str):
-    if b64_str.startswith("data:"):
-        b64_str = b64_str.split(",", 1)[1]
-    raw = base64.b64decode(b64_str)
-    return PILImage.open(io.BytesIO(raw)).convert("RGBA")
-
-def pil_to_png_bytes(pil_img, size=(80, 80)):
-    pil_img.thumbnail(size, PILImage.LANCZOS)
-    buf = io.BytesIO()
-    pil_img.save(buf, format="PNG")
-    buf.seek(0)
-    return buf
+def base64_to_pil(b64):
+    if b64.startswith("data:"): b64 = b64.split(",",1)[1]
+    return PILImage.open(io.BytesIO(base64.b64decode(b64))).convert("RGBA")
+def pil_to_png(img, size=(80,80)):
+    img.thumbnail(size, PILImage.LANCZOS)
+    buf = io.BytesIO(); img.save(buf, format="PNG"); buf.seek(0); return buf
 
 @app.after_request
-def after_request(response):
+def cors_headers(response):
     response.headers['Access-Control-Allow-Origin'] = '*'
     response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
-    response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+    response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
     return response
 
 @app.route('/')
 def index():
-    return jsonify({"status": "BGlam Excel API", "version": "1.1"})
+    return jsonify({"status": "BGlam Excel API", "version": "1.3", "db": bool(DATABASE_URL)})
 
-@app.route('/excel', methods=['OPTIONS'])
-@app.route('/extract-images', methods=['OPTIONS'])
-def handle_options():
-    return make_response('', 204)
+@app.route('/catalogue/<supplier>/save', methods=['POST','OPTIONS'])
+def save_catalogue(supplier):
+    if request.method == 'OPTIONS': return make_response('', 204)
+    try:
+        items = request.get_json(force=True).get('items', [])
+        # Strip base64 images before storing
+        light = []
+        for item in items:
+            c = dict(item)
+            if c.get('img','').startswith('data:'): c['img'] = ''
+            light.append(c)
+        items_json = json.dumps(light, ensure_ascii=False)
+        if DATABASE_URL:
+            conn = get_db(); cur = conn.cursor()
+            cur.execute('''
+                INSERT INTO catalogues (supplier, items, updated_at) VALUES (%s, %s, NOW())
+                ON CONFLICT (supplier) DO UPDATE SET items=EXCLUDED.items, updated_at=NOW()
+            ''', (supplier, items_json))
+            conn.commit(); cur.close(); conn.close()
+            return jsonify({'ok': True, 'count': len(light), 'storage': 'postgresql'})
+        return jsonify({'ok': False, 'error': 'No DB'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
-# ── EXTRACT IMAGES FROM XLSX ──────────────────────────────────────────────────
-@app.route('/extract-images', methods=['POST'])
+@app.route('/catalogue/<supplier>/load', methods=['GET','OPTIONS'])
+def load_catalogue(supplier):
+    if request.method == 'OPTIONS': return make_response('', 204)
+    try:
+        if DATABASE_URL:
+            conn = get_db(); cur = conn.cursor()
+            cur.execute('SELECT items, updated_at FROM catalogues WHERE supplier=%s', (supplier,))
+            row = cur.fetchone(); cur.close(); conn.close()
+            if row:
+                items = json.loads(row[0])
+                return jsonify({'ok': True, 'items': items, 'count': len(items), 'saved_at': str(row[1])})
+        return jsonify({'ok': False, 'items': [], 'count': 0})
+    except Exception as e:
+        return jsonify({'ok': False, 'items': [], 'count': 0, 'error': str(e)})
+
+@app.route('/catalogue/<supplier>/clear', methods=['POST','OPTIONS'])
+def clear_catalogue(supplier):
+    if request.method == 'OPTIONS': return make_response('', 204)
+    try:
+        if DATABASE_URL:
+            conn = get_db(); cur = conn.cursor()
+            cur.execute('DELETE FROM catalogues WHERE supplier=%s', (supplier,))
+            conn.commit(); cur.close(); conn.close()
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/extract-images', methods=['POST','OPTIONS'])
 def extract_images():
-    """
-    Receives a .xlsx file (multipart/form-data, field 'file').
-    Returns JSON: { "BA-398": "data:image/png;base64,...", ... }
-    """
+    if request.method == 'OPTIONS': return make_response('', 204)
     if 'file' not in request.files:
-        return jsonify({"error": "No file provided"}), 400
-
-    f = request.files['file']
+        return jsonify({"error": "No file"}), 400
     try:
         from openpyxl import load_workbook
-        wb = load_workbook(io.BytesIO(f.read()))
+        wb = load_workbook(io.BytesIO(request.files['file'].read()))
         ws = wb.active
-
-        # Auto-detect header row and ref column
-        header_row = 1
-        ref_col = 1  # default col A
-        REF_KEYWORDS = ('item no', 'item no.', 'item no:', 'ref', 'reference', 'sku', 'code')
+        header_row, ref_col = 1, 1
+        REF_KW = ('item no','item no.','item no:','ref','reference','sku','code')
         for i, row in enumerate(ws.iter_rows(min_row=1, max_row=15, values_only=False), 1):
             for cell in row:
-                if cell.value and str(cell.value).strip().lower() in REF_KEYWORDS:
-                    header_row = i
-                    ref_col = cell.column
-                    break
-            else:
-                continue
+                if cell.value and str(cell.value).strip().lower() in REF_KW:
+                    header_row, ref_col = i, cell.column; break
+            else: continue
             break
-
-        # Build row -> ref map using detected column
         row_to_ref = {}
         for row in ws.iter_rows(min_row=header_row+1, values_only=False):
             for cell in row:
                 if cell.column == ref_col and cell.value:
                     val = str(cell.value).strip()
-                    if val.lower() not in ('item no', 'item no.', 'item no:', 'ref', 'reference', ''):
-                        row_to_ref[cell.row] = val
-                        break
-
-        # Build image row -> base64 map
+                    if val.lower() not in REF_KW and val:
+                        row_to_ref[cell.row] = val; break
         img_map = {}
         for img in ws._images:
             try:
                 anchor = img.anchor
                 if hasattr(anchor, '_from'):
-                    img_row = anchor._from.row + 1
-                    data = img._data()
-                    if data and len(data) > 100:
-                        b64 = 'data:image/png;base64,' + base64.b64encode(data).decode('utf-8')
-                        img_map[img_row] = b64
-            except Exception:
-                pass
-
-        # Match images to refs (search ±5 rows around image anchor)
+                    r = anchor._from.row + 1
+                    d = img._data()
+                    if d and len(d) > 100:
+                        img_map[r] = 'data:image/png;base64,' + base64.b64encode(d).decode()
+            except: pass
         result = {}
         for img_row, b64 in img_map.items():
             ref = row_to_ref.get(img_row)
             if not ref:
-                for offset in range(-5, 6):
-                    ref = row_to_ref.get(img_row + offset)
-                    if ref:
-                        break
-            if ref and ref not in result:
-                result[ref] = b64
-
-        return jsonify({
-            "images": result,
-            "matched": len(result),
-            "total_images": len(img_map),
-            "total_refs": len(row_to_ref)
-        })
-
+                for off in range(-5, 6):
+                    ref = row_to_ref.get(img_row+off)
+                    if ref: break
+            if ref and ref not in result: result[ref] = b64
+        return jsonify({"images": result, "matched": len(result),
+                        "total_images": len(img_map), "total_refs": len(row_to_ref)})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-
-# ── GENERATE EXCEL WITH IMAGES ────────────────────────────────────────────────
-@app.route('/excel', methods=['POST'])
+@app.route('/excel', methods=['POST','OPTIONS'])
 def generate_excel():
-    try:
-        data = request.get_json(force=True)
-    except Exception:
-        return jsonify({"error": "Invalid JSON"}), 400
+    if request.method == 'OPTIONS': return make_response('', 204)
+    try: data = request.get_json(force=True)
+    except: return jsonify({"error": "Invalid JSON"}), 400
 
     supplier   = data.get("supplier",   "BGlam")
     order_name = data.get("order_name", "Commande")
     date_str   = data.get("date",       "")
     items      = data.get("items",      [])
+    if not items: return jsonify({"error": "No items"}), 400
 
-    if not items:
-        return jsonify({"error": "No items provided"}), 400
-
-    wb = Workbook()
-    ws = wb.active
-    ws.title = "Commande"
-
-    # Title row
-    ws.merge_cells("A1:K1")
-    ws["A1"] = f"{supplier} — Bon de Commande"
-    ws["A1"].font      = Font(name="Arial", size=14, bold=True, color=WHITE)
-    ws["A1"].fill      = hex_fill(DARK)
-    ws["A1"].alignment = Alignment(horizontal="center", vertical="center")
+    wb = Workbook(); ws = wb.active; ws.title = "Commande"
+    ws.merge_cells("A1:K1"); ws["A1"] = f"{supplier} — Bon de Commande"
+    ws["A1"].font = Font(name="Arial",size=14,bold=True,color=WHITE)
+    ws["A1"].fill = hex_fill(DARK)
+    ws["A1"].alignment = Alignment(horizontal="center",vertical="center")
     ws.row_dimensions[1].height = 30
 
-    # Meta row
-    ws.merge_cells("A2:D2")
-    ws["A2"] = f"Commande : {order_name}"
-    ws["A2"].font = Font(name="Arial", size=11, bold=True)
-    ws["A2"].fill = hex_fill(LGREY)
+    ws.merge_cells("A2:D2"); ws["A2"] = f"Commande : {order_name}"
+    ws["A2"].font = Font(name="Arial",size=11,bold=True); ws["A2"].fill = hex_fill(LGREY)
     ws["A2"].alignment = Alignment(vertical="center")
-    ws.merge_cells("E2:H2")
-    ws["E2"] = f"Date : {date_str}"
-    ws["E2"].font = Font(name="Arial", size=11)
-    ws["E2"].fill = hex_fill(LGREY)
-    ws["E2"].alignment = Alignment(vertical="center")
-    ws.row_dimensions[2].height = 22
+    ws.merge_cells("E2:H2"); ws["E2"] = f"Date : {date_str}"
+    ws["E2"].font = Font(name="Arial",size=11); ws["E2"].fill = hex_fill(LGREY)
+    ws["E2"].alignment = Alignment(vertical="center"); ws.row_dimensions[2].height = 22
 
-    # Header row
-    headers    = ["Photo","CTN NO","ITEM NO","DESCRIPTION","CATEGORIE","PRICE","PCS/CTN","CTN","QTY","AMOUNT","REMARK"]
-    col_widths = [14,      10,      12,       28,            22,         10,     10,       6,    8,    12,      35]
-    HEADER_ROW = 3
-    for col_idx, (h, w) in enumerate(zip(headers, col_widths), start=1):
-        cell = ws.cell(row=HEADER_ROW, column=col_idx, value=h)
-        cell.font      = Font(name="Arial", size=10, bold=True, color=WHITE)
-        cell.fill      = hex_fill(DARK)
-        cell.alignment = Alignment(horizontal="center", vertical="center")
-        cell.border    = thin_border()
-        ws.column_dimensions[get_column_letter(col_idx)].width = w
-    ws.row_dimensions[HEADER_ROW].height = 20
+    headers=["Photo","CTN NO","ITEM NO","DESCRIPTION","CATEGORIE","PRICE","PCS/CTN","CTN","QTY","AMOUNT","REMARK"]
+    widths =[14,      10,      12,       28,            22,         10,     10,       6,    8,    12,      35]
+    HR=3
+    for ci,(h,w) in enumerate(zip(headers,widths),1):
+        cell=ws.cell(row=HR,column=ci,value=h)
+        cell.font=Font(name="Arial",size=10,bold=True,color=WHITE)
+        cell.fill=hex_fill(DARK); cell.alignment=Alignment(horizontal="center",vertical="center")
+        cell.border=thin_border()
+        ws.column_dimensions[get_column_letter(ci)].width=w
+    ws.row_dimensions[HR].height=20
 
-    IMG_ROW_HEIGHT = 62
-    IMG_SIZE       = (60, 60)
-    total_amount   = 0.0
-
-    for row_offset, item in enumerate(items):
-        r     = HEADER_ROW + 1 + row_offset
-        qty   = item.get("qty") or 0
-        price = item.get("price")
-        amt   = round(qty * price, 2) if price is not None else None
-        if amt:
-            total_amount += amt
-        bg = LGREY if row_offset % 2 == 0 else WHITE
-
-        values = [
-            item.get("group",  ""),
-            item.get("ref",    ""),
-            item.get("desc",   ""),
-            item.get("cat",    ""),
-            price,
-            item.get("moq"),
-            "",
-            qty,
-            amt,
-            item.get("remark", ""),
-        ]
-        for col_idx, val in enumerate(values, start=2):
-            cell = ws.cell(row=r, column=col_idx, value=val)
-            cell.font      = Font(name="Arial", size=10)
-            cell.fill      = hex_fill(bg)
-            cell.alignment = Alignment(vertical="center")
-            cell.border    = thin_border()
-            if col_idx in (6, 7, 9, 10):
-                cell.alignment = Alignment(horizontal="right", vertical="center")
-            if col_idx == 10 and amt is not None:
-                cell.font = Font(name="Arial", size=10, bold=True, color=GREEN)
-
-        ws.row_dimensions[r].height = IMG_ROW_HEIGHT
-
-        # Embed image in col A
-        img_b64 = item.get("img", "")
-        if img_b64 and len(img_b64) > 100:
+    total=0.0
+    for ri,item in enumerate(items):
+        r=HR+1+ri; qty=item.get("qty") or 0; price=item.get("price")
+        amt=round(qty*price,2) if price is not None else None
+        if amt: total+=amt
+        bg=LGREY if ri%2==0 else WHITE
+        vals=[item.get("group",""),item.get("ref",""),item.get("desc",""),
+              item.get("cat",""),price,item.get("moq"),"",qty,amt,item.get("remark","")]
+        for ci,val in enumerate(vals,2):
+            cell=ws.cell(row=r,column=ci,value=val)
+            cell.font=Font(name="Arial",size=10); cell.fill=hex_fill(bg)
+            cell.border=thin_border(); cell.alignment=Alignment(vertical="center")
+            if ci in (6,7,9,10): cell.alignment=Alignment(horizontal="right",vertical="center")
+            if ci==10 and amt is not None: cell.font=Font(name="Arial",size=10,bold=True,color=GREEN)
+        ws.row_dimensions[r].height=62
+        img_b64=item.get("img","")
+        if img_b64 and len(img_b64)>100:
             try:
-                pil_img = base64_to_pil(img_b64)
-                png_buf = pil_to_png_bytes(pil_img, size=IMG_SIZE)
-                xl_img  = XLImage(png_buf)
-                xl_img.anchor = f"A{r}"
-                ws.add_image(xl_img)
-            except Exception:
-                pass
-        cell = ws.cell(row=r, column=1, value="")
-        cell.fill   = hex_fill(bg)
-        cell.border = thin_border()
+                pil=base64_to_pil(img_b64); buf=pil_to_png(pil,(60,60))
+                xl=XLImage(buf); xl.anchor=f"A{r}"; ws.add_image(xl)
+            except: pass
+        cell=ws.cell(row=r,column=1,value=""); cell.fill=hex_fill(bg); cell.border=thin_border()
 
-    # Total row
-    total_row = HEADER_ROW + 1 + len(items)
-    total_qty = sum((item.get("qty") or 0) for item in items)
-    ws.merge_cells(f"A{total_row}:H{total_row}")
-    cell = ws.cell(row=total_row, column=1, value="TOTAL")
-    cell.font      = Font(name="Arial", size=11, bold=True, color=WHITE)
-    cell.fill      = hex_fill(DARK)
-    cell.alignment = Alignment(horizontal="right", vertical="center")
-    cell = ws.cell(row=total_row, column=9, value=total_qty)
-    cell.font      = Font(name="Arial", size=11, bold=True, color=WHITE)
-    cell.fill      = hex_fill(DARK)
-    cell.alignment = Alignment(horizontal="right", vertical="center")
-    cell = ws.cell(row=total_row, column=10, value=round(total_amount, 2))
-    cell.font      = Font(name="Arial", size=12, bold=True, color="4ADE80")
-    cell.fill      = hex_fill(DARK)
-    cell.alignment = Alignment(horizontal="right", vertical="center")
-    ws.row_dimensions[total_row].height = 24
-    ws.freeze_panes = f"B{HEADER_ROW + 1}"
+    tr=HR+1+len(items); tq=sum((item.get("qty") or 0) for item in items)
+    ws.merge_cells(f"A{tr}:H{tr}")
+    c=ws.cell(row=tr,column=1,value="TOTAL")
+    c.font=Font(name="Arial",size=11,bold=True,color=WHITE); c.fill=hex_fill(DARK)
+    c.alignment=Alignment(horizontal="right",vertical="center")
+    c=ws.cell(row=tr,column=9,value=tq)
+    c.font=Font(name="Arial",size=11,bold=True,color=WHITE); c.fill=hex_fill(DARK)
+    c.alignment=Alignment(horizontal="center",vertical="center")
+    c=ws.cell(row=tr,column=10,value=round(total,2))
+    c.font=Font(name="Arial",size=12,bold=True,color="4ADE80"); c.fill=hex_fill(DARK)
+    c.alignment=Alignment(horizontal="center",vertical="center")
+    ws.row_dimensions[tr].height=24; ws.freeze_panes=f"B{HR+1}"
 
-    buf = io.BytesIO()
-    wb.save(buf)
-    buf.seek(0)
-
-    safe_name = re.sub(r"[^a-zA-Z0-9_\- ]", "_", f"{supplier}_{order_name}")
-    filename  = f"{safe_name}_{date_str.replace('/', '-')}.xlsx"
-
-    response = make_response(send_file(
-        buf,
-        as_attachment=True,
-        download_name=filename,
-        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    ))
-    response.headers['Access-Control-Allow-Origin'] = '*'
-    return response
+    buf=io.BytesIO(); wb.save(buf); buf.seek(0)
+    safe=re.sub(r"[^a-zA-Z0-9_\- ]","_",f"{supplier}_{order_name}")
+    fname=f"{safe}_{date_str.replace('//','-')}.xlsx"
+    resp=make_response(send_file(buf,as_attachment=True,download_name=fname,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+    resp.headers['Access-Control-Allow-Origin']='*'
+    return resp
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
