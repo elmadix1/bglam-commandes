@@ -44,12 +44,77 @@ def after_request(response):
 
 @app.route('/')
 def index():
-    return jsonify({"status": "BGlam Excel API", "version": "1.0"})
+    return jsonify({"status": "BGlam Excel API", "version": "1.1"})
 
 @app.route('/excel', methods=['OPTIONS'])
-def excel_options():
+@app.route('/extract-images', methods=['OPTIONS'])
+def handle_options():
     return make_response('', 204)
 
+# ── EXTRACT IMAGES FROM XLSX ──────────────────────────────────────────────────
+@app.route('/extract-images', methods=['POST'])
+def extract_images():
+    """
+    Receives a .xlsx file (multipart/form-data, field 'file').
+    Returns JSON: { "BA-398": "data:image/png;base64,...", ... }
+    """
+    if 'file' not in request.files:
+        return jsonify({"error": "No file provided"}), 400
+
+    f = request.files['file']
+    try:
+        from openpyxl import load_workbook
+        wb = load_workbook(io.BytesIO(f.read()))
+        ws = wb.active
+
+        # Build row -> ITEM NO map (column B = index 1)
+        row_to_ref = {}
+        for row in ws.iter_rows(min_row=2, values_only=False):
+            item_no = row[1].value if len(row) > 1 else None
+            if item_no and str(item_no).strip():
+                val = str(item_no).strip()
+                # Skip header-like values
+                if val.lower() not in ('item no', 'item no.', 'ref', 'reference'):
+                    row_to_ref[row[0].row] = val
+
+        # Build image row -> base64 map
+        img_map = {}
+        for img in ws._images:
+            try:
+                anchor = img.anchor
+                if hasattr(anchor, '_from'):
+                    img_row = anchor._from.row + 1
+                    data = img._data()
+                    if data and len(data) > 100:
+                        b64 = 'data:image/png;base64,' + base64.b64encode(data).decode('utf-8')
+                        img_map[img_row] = b64
+            except Exception:
+                pass
+
+        # Match images to refs (search ±5 rows around image anchor)
+        result = {}
+        for img_row, b64 in img_map.items():
+            ref = row_to_ref.get(img_row)
+            if not ref:
+                for offset in range(-5, 6):
+                    ref = row_to_ref.get(img_row + offset)
+                    if ref:
+                        break
+            if ref and ref not in result:
+                result[ref] = b64
+
+        return jsonify({
+            "images": result,
+            "matched": len(result),
+            "total_images": len(img_map),
+            "total_refs": len(row_to_ref)
+        })
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# ── GENERATE EXCEL WITH IMAGES ────────────────────────────────────────────────
 @app.route('/excel', methods=['POST'])
 def generate_excel():
     try:
@@ -100,11 +165,9 @@ def generate_excel():
         cell.fill      = hex_fill(DARK)
         cell.alignment = Alignment(horizontal="center", vertical="center")
         cell.border    = thin_border()
-
         ws.column_dimensions[get_column_letter(col_idx)].width = w
     ws.row_dimensions[HEADER_ROW].height = 20
 
-    # Data rows
     IMG_ROW_HEIGHT = 62
     IMG_SIZE       = (60, 60)
     total_amount   = 0.0
@@ -152,17 +215,11 @@ def generate_excel():
                 xl_img  = XLImage(png_buf)
                 xl_img.anchor = f"A{r}"
                 ws.add_image(xl_img)
-                cell = ws.cell(row=r, column=1)
-                cell.fill   = hex_fill(bg)
-                cell.border = thin_border()
-            except Exception as e:
-                cell = ws.cell(row=r, column=1, value="")
-                cell.fill   = hex_fill(bg)
-                cell.border = thin_border()
-        else:
-            cell = ws.cell(row=r, column=1, value="")
-            cell.fill   = hex_fill(bg)
-            cell.border = thin_border()
+            except Exception:
+                pass
+        cell = ws.cell(row=r, column=1, value="")
+        cell.fill   = hex_fill(bg)
+        cell.border = thin_border()
 
     # Total row
     total_row = HEADER_ROW + 1 + len(items)

@@ -212,26 +212,46 @@ function handleXlsDrop(e){e.preventDefault();document.getElementById('dz').class
 var ALIASES={ref:['item no','item no.','ref','reference','sku','code'],desc:['dec','desc','description','product','libelle','name'],price:['price','prix','unit price','cost'],moq:['pcs/ctn','moq','pcs per ctn','qty/ctn','pack'],group:['ctn no','ctn no.','group','carton','lot'],cat:['category','categorie','cat'],remark:['remark','remarks','note','notes','comment'],img:['image','img','photo','url','pic']};
 function matchCol(h){var lh=h.toLowerCase().trim();for(var f in ALIASES){var als=ALIASES[f];for(var i=0;i<als.length;i++){if(lh.indexOf(als[i])!==-1||als[i].indexOf(lh)!==-1)return f;}}return null;}
 
+var pendingImageMap = {};
+
 function handleXlsFile(file){
   var log=document.getElementById('ilog');log.style.display='block';log.textContent='"'+file.name+'" en cours...\n';
-  var reader=new FileReader();
-  reader.onload=function(e){
-    try{
-      var wb=XLSX.read(e.target.result,{type:'array'});
-      var ws=wb.Sheets[wb.SheetNames[0]];
-      var data=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
-      var hr=-1;
-      for(var i=0;i<Math.min(10,data.length);i++){if(data[i].filter(function(c){return String(c).trim()!=='';}).length>=3){hr=i;break;}}
-      if(hr<0){log.textContent+='❌ En-tête introuvable.\n';return;}
-      parsedHeaders=data[hr].map(function(h){return String(h).trim();});
-      parsedRows=data.slice(hr+1).filter(function(r){return r.some(function(c){return String(c).trim()!=='';});});
-      log.textContent+='✓ '+parsedRows.length+' lignes · Colonnes : '+parsedHeaders.filter(function(h){return h;}).join(' | ')+'\n';
-      var am={};parsedHeaders.forEach(function(h,i){var f=matchCol(h);if(f&&am[f]===undefined)am[f]=i;});
-      log.textContent+='✓ Mapping : '+Object.keys(am).map(function(k){return k+'→"'+parsedHeaders[am[k]]+'"';}).join(', ')+'\n';
-      buildMapper(am);
-    }catch(err){log.textContent+='❌ '+err.message+'\n';}
-  };
-  reader.readAsArrayBuffer(file);
+  pendingImageMap = {};
+
+  // 1. Extract images via backend
+  var formData = new FormData();
+  formData.append('file', file);
+  log.textContent += '🖼 Extraction des photos depuis Excel...\n';
+  fetch(BACKEND_URL+'/extract-images', {method:'POST', body:formData})
+    .then(function(res){ return res.json(); })
+    .then(function(data){
+      if(data.images){
+        pendingImageMap = data.images;
+        log.textContent += '✓ '+data.matched+' photos extraites sur '+data.total_refs+' références\n';
+      }
+    })
+    .catch(function(){ log.textContent += '⚠️ Photos non extraites (backend indisponible)\n'; })
+    .finally(function(){
+      // 2. Parse Excel data with SheetJS
+      var reader=new FileReader();
+      reader.onload=function(e){
+        try{
+          var wb=XLSX.read(e.target.result,{type:'array'});
+          var ws=wb.Sheets[wb.SheetNames[0]];
+          var data=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+          var hr=-1;
+          for(var i=0;i<Math.min(10,data.length);i++){if(data[i].filter(function(c){return String(c).trim()!=='';}).length>=3){hr=i;break;}}
+          if(hr<0){log.textContent+='❌ En-tête introuvable.\n';return;}
+          parsedHeaders=data[hr].map(function(h){return String(h).trim();});
+          parsedRows=data.slice(hr+1).filter(function(r){return r.some(function(c){return String(c).trim()!=='';});});
+          log.textContent+='✓ '+parsedRows.length+' lignes · Colonnes : '+parsedHeaders.filter(function(h){return h;}).join(' | ')+'\n';
+          var am={};parsedHeaders.forEach(function(h,i){var f=matchCol(h);if(f&&am[f]===undefined)am[f]=i;});
+          log.textContent+='✓ Mapping : '+Object.keys(am).map(function(k){return k+'→"'+parsedHeaders[am[k]]+'"';}).join(', ')+'\n';
+          buildMapper(am);
+        }catch(err){log.textContent+='❌ '+err.message+'\n';}
+      };
+      reader.readAsArrayBuffer(file);
+    });
 }
 
 function buildMapper(am){
@@ -271,9 +291,11 @@ function runImport(){
       if(cat&&!ex.cat){ex.cat=cat;ch=true;}
       if(remark&&!ex.remark){ex.remark=remark;ch=true;}
       if(img&&!ex.img){ex.img=img;ch=true;}
+      // Also apply extracted image from backend if available
+      if(pendingImageMap[ref]&&!ex.img){ex.img=pendingImageMap[ref];ch=true;}
       ch?updated++:skipped++;
     }else{
-      catalogue.push({id:nextId++,group:group,ref:ref,desc:desc||ref,cat:cat||'Non classé',price:price,moq:moq,remark:remark,img:''});
+      catalogue.push({id:nextId++,group:group,ref:ref,desc:desc||ref,cat:cat||'Non classé',price:price,moq:moq,remark:remark,img:pendingImageMap[ref]||''});
       added++;
     }
   });
