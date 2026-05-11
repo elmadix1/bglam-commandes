@@ -284,17 +284,34 @@ def extract_images():
             def upload_all():
                 for ref, b64 in result.items():
                     group = ref_groups.get(ref, '')
-                    file_key = ref + ('_' + group if group else '')
+                    if ref_count.get(ref, 1) > 1 and group:
+                        file_key = ref + '_' + group
+                    else:
+                        file_key = ref
                     upload_image_to_github(file_key, b64)
             t = threading.Thread(target=upload_all, daemon=True)
             t.start()
 
         # Build URL map based on what will be uploaded
+        # Count occurrences to detect true duplicates
+        ref_count = {}
+        for img_row2 in img_map:
+            r2 = row_to_ref.get(img_row2)
+            if not r2:
+                for off2 in range(-5, 6):
+                    r2 = row_to_ref.get(img_row2+off2)
+                    if r2: break
+            if r2:
+                ref_count[r2] = ref_count.get(r2, 0) + 1
+
         url_map = {}
         if GITHUB_TOKEN:
             for ref in result:
                 group = ref_groups.get(ref, '')
-                file_key = ref + ('_' + group if group else '')
+                if ref_count.get(ref, 1) > 1 and group:
+                    file_key = ref + '_' + group
+                else:
+                    file_key = ref
                 safe_key = re.sub(r'[^a-zA-Z0-9_-]', '_', file_key)
                 url_map[ref] = f"{IMAGES_BASE_URL}/{safe_key}.jpg"
 
