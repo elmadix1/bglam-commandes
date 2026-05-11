@@ -131,7 +131,7 @@ tr.hq:hover td{background:#d5f5e8}
     <h3>🔗 Association des colonnes</h3>
     <div class="cmg" id="cmg"></div>
     <div style="display:flex;align-items:center;margin-top:10px;gap:8px">
-      <button class="btn bb" onclick="runImport()">✓ Importer et fusionner</button>
+      <button class="btn bb" id="importBtn" onclick="runImport()" disabled style="opacity:.5;cursor:not-allowed">⏳ Extraction en cours...</button>
       <span class="ires" id="ires"></span>
     </div>
   </div>
@@ -256,25 +256,51 @@ var pendingUrlMap = {};
 function handleXlsFile(file){
   var log=document.getElementById('ilog');log.style.display='block';log.textContent='"'+file.name+'" en cours...\n';
   pendingImageMap = {};
+  pendingUrlMap = {};
+  var btn = document.getElementById('importBtn');
+  if(btn){ btn.disabled=true; btn.style.opacity='.5'; btn.style.cursor='not-allowed'; btn.textContent='⏳ Extraction en cours...'; }
+  document.getElementById('cmap').style.display='none';
 
   // 1. Extract images via backend
   var formData = new FormData();
   formData.append('file', file);
   log.textContent += '🖼 Extraction des photos depuis Excel...\n';
+  var extractStart = Date.now();
+  var progressInterval = setInterval(function(){
+    var elapsed = Math.round((Date.now() - extractStart) / 1000);
+    var dots = '.'.repeat((elapsed % 3) + 1);
+    var lines = log.textContent.split('\n');
+    // Update last progress line
+    var lastLine = lines[lines.length - 2] || '';
+    if(lastLine.startsWith('⏳')) {
+      lines[lines.length - 2] = '⏳ Upload GitHub en cours' + dots + ' (' + elapsed + 's)';
+    } else {
+      lines.push('⏳ Upload GitHub en cours' + dots + ' (' + elapsed + 's)');
+    }
+    log.textContent = lines.join('\n');
+    log.scrollTop = log.scrollHeight;
+  }, 1000);
+
   fetch(BACKEND_URL+'/extract-images', {method:'POST', body:formData})
     .then(function(res){ return res.json(); })
     .then(function(data){
+      clearInterval(progressInterval);
+      // Remove progress line
+      var lines = log.textContent.split('\n').filter(function(l){ return !l.startsWith('⏳'); });
+      log.textContent = lines.join('\n');
       if(data.images){
         pendingImageMap = data.images;
         pendingUrlMap = data.urls || {};
         var githubCount = Object.keys(pendingUrlMap).length;
-        log.textContent += '✓ '+data.matched+' photos extraites sur '+data.total_refs+' références';
-        if(githubCount > 0) log.textContent += ' · '+githubCount+' uploadées sur GitHub';
-        log.textContent += '\n';
+        log.textContent += '✓ '+data.matched+' photos extraites · '+githubCount+' URLs GitHub prêtes\n';
+        log.textContent += '👉 Tu peux maintenant cliquer "Importer et fusionner"\n';
       }
     })
     .catch(function(){ log.textContent += '⚠️ Photos non extraites (backend indisponible)\n'; })
     .finally(function(){
+      // Enable import button
+      var btn = document.getElementById('importBtn');
+      if(btn){ btn.disabled=false; btn.style.opacity='1'; btn.style.cursor='pointer'; btn.textContent='✓ Importer et fusionner'; }
       // 2. Parse Excel data with SheetJS
       var reader=new FileReader();
       reader.onload=function(e){
