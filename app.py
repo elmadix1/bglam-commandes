@@ -67,15 +67,29 @@ def extract_images():
         wb = load_workbook(io.BytesIO(f.read()))
         ws = wb.active
 
-        # Build row -> ITEM NO map (column B = index 1)
+        # Auto-detect header row and ref column
+        header_row = 1
+        ref_col = 1  # default col A
+        REF_KEYWORDS = ('item no', 'item no.', 'item no:', 'ref', 'reference', 'sku', 'code')
+        for i, row in enumerate(ws.iter_rows(min_row=1, max_row=15, values_only=False), 1):
+            for cell in row:
+                if cell.value and str(cell.value).strip().lower() in REF_KEYWORDS:
+                    header_row = i
+                    ref_col = cell.column
+                    break
+            else:
+                continue
+            break
+
+        # Build row -> ref map using detected column
         row_to_ref = {}
-        for row in ws.iter_rows(min_row=2, values_only=False):
-            item_no = row[1].value if len(row) > 1 else None
-            if item_no and str(item_no).strip():
-                val = str(item_no).strip()
-                # Skip header-like values
-                if val.lower() not in ('item no', 'item no.', 'ref', 'reference'):
-                    row_to_ref[row[0].row] = val
+        for row in ws.iter_rows(min_row=header_row+1, values_only=False):
+            for cell in row:
+                if cell.column == ref_col and cell.value:
+                    val = str(cell.value).strip()
+                    if val.lower() not in ('item no', 'item no.', 'item no:', 'ref', 'reference', ''):
+                        row_to_ref[cell.row] = val
+                        break
 
         # Build image row -> base64 map
         img_map = {}
