@@ -287,22 +287,89 @@ function handleXlsFile(file){
     .then(function(res){ return res.json(); })
     .then(function(data){
       clearInterval(progressInterval);
-      // Remove progress line
       var lines = log.textContent.split('\n').filter(function(l){ return !l.startsWith('⏳'); });
       log.textContent = lines.join('\n');
-      if(data.images){
+      if(data.images && Object.keys(data.images).length > 0){
         pendingImageMap = data.images;
-        pendingUrlMap = data.urls || {};
-        var githubCount = Object.keys(pendingUrlMap).length;
-        log.textContent += '✓ '+data.matched+' photos extraites · '+githubCount+' URLs GitHub prêtes\n';
-        log.textContent += '👉 Tu peux maintenant cliquer "Importer et fusionner"\n';
+        var total = Object.keys(data.images).length;
+        log.textContent += '✓ '+data.matched+' photos extraites sur '+data.total_refs+' références\n';
+        log.textContent += '⬆️ Upload GitHub en cours : 0/'+total+'\n';
+        
+        // Stream upload progress via SSE
+        var es = new EventSource(BACKEND_URL+'/upload-images?dummy=1');
+        // Actually SSE with POST needs fetch - use fetch with ReadableStream
+        fetch(BACKEND_URL+'/upload-images', {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({images: data.images})
+        }).then(function(res){
+          var reader = res.body.getReader();
+          var decoder = new TextDecoder();
+          var buffer = '';
+          function read(){
+            reader.read().then(function(result){
+              if(result.done){
+                var btn2 = document.getElementById('importBtn');
+                if(btn2){ btn2.disabled=false; btn2.style.opacity='1'; btn2.style.cursor='pointer'; btn2.textContent='✓ Importer et fusionner'; }
+                return;
+              }
+              buffer += decoder.decode(result.value, {stream:true});
+              var parts = buffer.split('\n\n');
+              buffer = parts.pop();
+              parts.forEach(function(part){
+                if(part.startsWith('data: ')){
+                  try{
+                    var evt = JSON.parse(part.slice(6));
+                    if(evt.type==='progress'){
+                      var lines2 = log.textContent.split('\n');
+                      for(var i=lines2.length-1;i>=0;i--){
+                        if(lines2[i].startsWith('⬆️')){
+                          lines2[i]='⬆️ Upload GitHub : '+evt.done+'/'+evt.total+' ('+Math.round(evt.done/evt.total*100)+'%)';
+                          break;
+                        }
+                      }
+                      log.textContent = lines2.join('\n');
+                      log.scrollTop = log.scrollHeight;
+                    } else if(evt.type==='done'){
+                      pendingUrlMap = evt.urls || {};
+                      var lines2 = log.textContent.split('\n');
+                      for(var i=lines2.length-1;i>=0;i--){
+                        if(lines2[i].startsWith('⬆️')){
+                          lines2[i]='✅ '+evt.count+' images uploadées sur GitHub';
+                          break;
+                        }
+                      }
+                      log.textContent = lines2.join('\n');
+                      log.textContent += '👉 Tu peux maintenant cliquer "Importer et fusionner"\n';
+                      log.scrollTop = log.scrollHeight;
+                      var btn2 = document.getElementById('importBtn');
+                      if(btn2){ btn2.disabled=false; btn2.style.opacity='1'; btn2.style.cursor='pointer'; btn2.textContent='✓ Importer et fusionner'; }
+                    }
+                  }catch(e){}
+                }
+              });
+              read();
+            });
+          }
+          read();
+        }).catch(function(e){
+          log.textContent += '⚠️ Upload GitHub échoué\n';
+          var btn2 = document.getElementById('importBtn');
+          if(btn2){ btn2.disabled=false; btn2.style.opacity='1'; btn2.style.cursor='pointer'; btn2.textContent='✓ Importer (sans photos)'; }
+        });
+      } else {
+        log.textContent += '⚠️ Aucune photo dans ce fichier\n';
+        var btn2 = document.getElementById('importBtn');
+        if(btn2){ btn2.disabled=false; btn2.style.opacity='1'; btn2.style.cursor='pointer'; btn2.textContent='✓ Importer (sans photos)'; }
       }
     })
-    .catch(function(){ log.textContent += '⚠️ Photos non extraites (backend indisponible)\n'; })
-    .finally(function(){
-      // Enable import button
+    .catch(function(){ 
+      clearInterval(progressInterval);
+      log.textContent += '⚠️ Photos non extraites — import sans photos possible\n';
       var btn = document.getElementById('importBtn');
-      if(btn){ btn.disabled=false; btn.style.opacity='1'; btn.style.cursor='pointer'; btn.textContent='✓ Importer et fusionner'; }
+      if(btn){ btn.disabled=false; btn.style.opacity='1'; btn.style.cursor='pointer'; btn.textContent='✓ Importer (sans photos)'; }
+    })
+    .finally(function(){
       // 2. Parse Excel data with SheetJS
       var reader=new FileReader();
       reader.onload=function(e){
