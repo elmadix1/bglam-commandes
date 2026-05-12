@@ -112,34 +112,59 @@ h2{font-size:14px;font-weight:700;color:#888;text-transform:uppercase;letter-spa
 </div>
 
 <script>
-const SUPPLIERS = [
-  {key:'rose',   label:'Rose'},
-  {key:'cassie', label:'Cassie'},
-  {key:'be',     label:'BE'},
-  {key:'vicov',  label:'VICOV'},
-];
+const BACKEND_URL = 'https://bglam-commandes-gbzy-production.up.railway.app';
 
-function loadStats() {
-  let totalAmt = 0, totalSupp = 0, totalRefs = 0;
-  SUPPLIERS.forEach(s => {
-    try {
-      const cat = JSON.parse(localStorage.getItem('bg_cat_'+s.key)||'[]');
-      const qty = JSON.parse(localStorage.getItem('bg_qty_'+s.key)||'{}');
-      const refs = cat.length;
-      const sel = cat.filter(r => qty[r.id] > 0).length;
-      const amt = cat.filter(r => qty[r.id] > 0 && r.price != null)
-                     .reduce((sum, r) => sum + (qty[r.id]||0) * r.price, 0);
-      document.getElementById(s.key+'-refs').textContent = refs;
-      document.getElementById(s.key+'-sel').textContent = sel;
-      document.getElementById(s.key+'-amt').textContent = '$'+amt.toFixed(0);
-      if (sel > 0) { totalSupp++; totalRefs += sel; totalAmt += amt; }
-    } catch(e) {}
-  });
+// Suppliers stored in localStorage
+const LOCAL_SUPPLIERS = ['rose','cassie','be'];
+// Suppliers stored in PostgreSQL
+const SERVER_SUPPLIERS = ['vicov'];
+
+let totalAmt = 0, totalSupp = 0, totalRefs = 0;
+
+function updateTotals() {
   document.getElementById('totalAmt').textContent = '$'+totalAmt.toFixed(2);
   document.getElementById('totalSupp').textContent = totalSupp;
   document.getElementById('totalRefs').textContent = totalRefs;
 }
-loadStats();
+
+function setStats(key, refs, sel, amt) {
+  document.getElementById(key+'-refs').textContent = refs;
+  document.getElementById(key+'-sel').textContent = sel;
+  document.getElementById(key+'-amt').textContent = '$'+amt.toFixed(0);
+  if (sel > 0) { totalSupp++; totalRefs += sel; totalAmt += amt; }
+  updateTotals();
+}
+
+// Load localStorage suppliers
+LOCAL_SUPPLIERS.forEach(key => {
+  try {
+    const cat = JSON.parse(localStorage.getItem('bg_cat_'+key)||'[]');
+    const qty = JSON.parse(localStorage.getItem('bg_qty_'+key)||'{}');
+    const refs = cat.length;
+    const sel = cat.filter(r => qty[r.id] > 0).length;
+    const amt = cat.filter(r => qty[r.id] > 0 && r.price != null)
+                   .reduce((sum, r) => sum + (qty[r.id]||0) * r.price, 0);
+    setStats(key, refs, sel, amt);
+  } catch(e) {}
+});
+
+// Load PostgreSQL suppliers
+SERVER_SUPPLIERS.forEach(key => {
+  fetch(BACKEND_URL+'/catalogue/'+key+'/load')
+    .then(r => r.json())
+    .then(data => {
+      if (data.ok && data.items) {
+        const cat = data.items;
+        const qty = JSON.parse(localStorage.getItem('bg_qty_'+key)||'{}');
+        const refs = cat.length;
+        const sel = cat.filter(r => qty[r.id] > 0).length;
+        const amt = cat.filter(r => qty[r.id] > 0 && r.price != null)
+                       .reduce((sum, r) => sum + (qty[r.id]||0) * r.price, 0);
+        setStats(key, refs, sel, amt);
+      }
+    })
+    .catch(() => {});
+});
 </script>
 </body>
 </html>
