@@ -402,6 +402,40 @@ def generate_excel():
     resp.headers['Access-Control-Allow-Origin']='*'
     return resp
 
+
+@app.route('/upload-images', methods=['POST','OPTIONS'])
+def upload_images():
+    """Upload pre-extracted images to GitHub with SSE progress streaming."""
+    if request.method == 'OPTIONS': return make_response('', 204)
+    
+    try:
+        data = request.get_json(force=True)
+        images = data.get('images', {})  # {img_key: b64}
+    except:
+        return jsonify({"error": "Invalid JSON"}), 400
+
+    def generate():
+        total = len(images)
+        done = 0
+        url_map = {}
+        yield f"data: {json.dumps({'type':'start','total':total})}\n\n"
+        
+        for img_key, b64 in images.items():
+            url = upload_image_to_github(img_key, b64)
+            if url:
+                url_map[img_key] = url
+            done += 1
+            yield f"data: {json.dumps({'type':'progress','done':done,'total':total,'key':img_key})}\n\n"
+        
+        yield f"data: {json.dumps({'type':'done','urls':url_map,'count':len(url_map)})}\n\n"
+
+    response = make_response(generate())
+    response.headers['Content-Type'] = 'text/event-stream'
+    response.headers['Cache-Control'] = 'no-cache'
+    response.headers['X-Accel-Buffering'] = 'no'
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    return response
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
