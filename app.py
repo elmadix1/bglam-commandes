@@ -55,96 +55,64 @@ def init_db():
 
 init_db()
 
-def upload_image_to_github(ref, b64_data, retries=3):
+def upload_image_to_github(img_key, b64_data):
     """Upload a base64 image to GitHub repo and return its URL."""
     if not GITHUB_TOKEN:
         return None
-    for attempt in range(retries):
-     try:
-        import urllib.request, urllib.error
-        # Strip data URI prefix if present
-        if b64_data.startswith('data:'):
-            b64_data = b64_data.split(',', 1)[1]
-        
-        # Determine filename - use ref as filename
-        safe_ref = re.sub(r'[^a-zA-Z0-9_\-]', '_', ref)
-        filename = f"{safe_ref}.jpg"
-        path = f"images/{filename}"
-        api_url = f"https://api.github.com/repos/{GITHUB_REPO}/contents/{path}"
-        
-        # Check if file already exists (to get SHA for update)
-        sha = None
+    import urllib.request, urllib.error, time
+    
+    if b64_data.startswith('data:'):
+        b64_data = b64_data.split(',', 1)[1]
+    
+    safe_key = re.sub(r'[^a-zA-Z0-9_-]', '_', img_key)
+    filename = f"{safe_key}.jpg"
+    path = f"images/{filename}"
+    api_url = f"https://api.github.com/repos/{GITHUB_REPO}/contents/{path}"
+    headers = {
+        'Authorization': f'token {GITHUB_TOKEN}',
+        'Accept': 'application/vnd.github.v3+json',
+        'Content-Type': 'application/json'
+    }
+    
+    for attempt in range(3):
         try:
-            req = urllib.request.Request(api_url, headers={
-                'Authorization': f'token {GITHUB_TOKEN}',
-                'Accept': 'application/vnd.github.v3+json'
-            })
-            with urllib.request.urlopen(req) as resp:
-                existing = json.loads(resp.read())
-                sha = existing.get('sha')
-        except urllib.error.HTTPError as he:
-            if he.code == 404:
-                pass  # File doesn't exist yet — will create
-            elif he.code == 422:
-                pass  # Unprocessable — try anyway
-            else:
-                pass  # Other error
-        
-        # Upload file
-        payload = {
-            'message': f'Add image {filename}',
-            'content': b64_data,
-            'branch': GITHUB_BRANCH
-        }
-        if sha:
-            payload['sha'] = sha
-            payload['message'] = f'Update image {filename}'
-        
-        data = json.dumps(payload).encode('utf-8')
-        req = urllib.request.Request(api_url, data=data, method='PUT', headers={
-            'Authorization': f'token {GITHUB_TOKEN}',
-            'Accept': 'application/vnd.github.v3+json',
-            'Content-Type': 'application/json'
-        })
-        with urllib.request.urlopen(req) as resp:
-            result = json.loads(resp.read())
-            return f"{IMAGES_BASE_URL}/{filename}"
-    except urllib.error.HTTPError as he:
-        if he.code == 409:
+            # Check if exists (get SHA)
+            sha = None
             try:
-                req2 = urllib.request.Request(api_url, headers={
-                    'Authorization': f'token {GITHUB_TOKEN}',
-                    'Accept': 'application/vnd.github.v3+json'
-                })
-                with urllib.request.urlopen(req2) as resp2:
-                    existing2 = json.loads(resp2.read())
-                    sha2 = existing2.get('sha')
-                if sha2:
-                    payload['sha'] = sha2
-                    payload['message'] = f'Update image {filename}'
-                    data2 = json.dumps(payload).encode('utf-8')
-                    req3 = urllib.request.Request(api_url, data=data2, method='PUT', headers={
-                        'Authorization': f'token {GITHUB_TOKEN}',
-                        'Accept': 'application/vnd.github.v3+json',
-                        'Content-Type': 'application/json'
-                    })
-                    with urllib.request.urlopen(req3) as resp3:
-                        json.loads(resp3.read())
-            except Exception:
-                pass
-            return f"{IMAGES_BASE_URL}/{filename}"
-        if attempt < retries - 1:
-            import time; time.sleep(2)
-            continue
-        print(f"GitHub upload error for {ref}: {he}")
-        return None
-    except Exception as e:
-        if attempt < retries - 1:
-            import time; time.sleep(2)
-            continue
-        print(f"GitHub upload error for {ref}: {e}")
-        return None
-    break
+                req = urllib.request.Request(api_url, headers=headers)
+                with urllib.request.urlopen(req) as resp:
+                    sha = json.loads(resp.read()).get('sha')
+            except urllib.error.HTTPError as e:
+                if e.code != 404:
+                    pass
+            
+            # Upload
+            payload = {'message': f'{"Update" if sha else "Add"} image {filename}',
+                      'content': b64_data, 'branch': GITHUB_BRANCH}
+            if sha:
+                payload['sha'] = sha
+            
+            req = urllib.request.Request(api_url,
+                data=json.dumps(payload).encode('utf-8'),
+                method='PUT', headers=headers)
+            with urllib.request.urlopen(req) as resp:
+                json.loads(resp.read())
+                return f"{IMAGES_BASE_URL}/{filename}"
+        
+        except urllib.error.HTTPError as e:
+            if e.code == 409:
+                return f"{IMAGES_BASE_URL}/{filename}"
+            if attempt < 2:
+                time.sleep(2)
+                continue
+            print(f"GitHub upload error for {img_key}: {e}")
+            return None
+        except Exception as e:
+            if attempt < 2:
+                time.sleep(2)
+                continue
+            print(f"GitHub upload error for {img_key}: {e}")
+            return None
     return None
 
 def hex_fill(h): return PatternFill("solid", fgColor=h)
