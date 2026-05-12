@@ -47,7 +47,7 @@ def init_db():
             )
         ''')
         cur.execute('''
-            CREATE TABLE IF NOT EXISTS suppliers (
+            CREATE TABLE IF NOT EXISTS fournisseurs (
                 key        VARCHAR(50) PRIMARY KEY,
                 name       VARCHAR(100) NOT NULL,
                 emoji      VARCHAR(10)  DEFAULT '🏪',
@@ -65,7 +65,7 @@ def init_db():
         ]
         for d in defaults:
             cur.execute('''
-                INSERT INTO suppliers (key, name, emoji, badge_type, sub)
+                INSERT INTO fournisseurs (key, name, emoji, badge_type, sub)
                 VALUES (%s, %s, %s, %s, %s)
                 ON CONFLICT (key) DO NOTHING
             ''', d)
@@ -449,7 +449,7 @@ def list_suppliers():
     try:
         if DATABASE_URL:
             conn = get_db(); cur = conn.cursor()
-            cur.execute('SELECT key, name, emoji, badge_type, sub FROM suppliers ORDER BY created_at')
+            cur.execute('SELECT key, name, emoji, badge_type, sub FROM fournisseurs ORDER BY created_at')
             rows = cur.fetchall()
             cur.close(); conn.close()
             return jsonify({'ok': True, 'suppliers': [
@@ -498,7 +498,7 @@ def create_supplier():
 
         if DATABASE_URL:
             conn = get_db(); cur = conn.cursor()
-            sql = 'INSERT INTO suppliers (key, name, emoji, badge_type, sub) VALUES (%s,%s,%s,%s,%s) ON CONFLICT (key) DO UPDATE SET name=EXCLUDED.name, emoji=EXCLUDED.emoji, badge_type=EXCLUDED.badge_type, sub=EXCLUDED.sub'
+            sql = 'INSERT INTO fournisseurs (key, name, emoji, badge_type, sub) VALUES (%s,%s,%s,%s,%s) ON CONFLICT (key) DO UPDATE SET name=EXCLUDED.name, emoji=EXCLUDED.emoji, badge_type=EXCLUDED.badge_type, sub=EXCLUDED.sub'
             cur.execute(sql, (key, name, emoji, badge_type, sub))
             conn.commit(); cur.close(); conn.close()
 
