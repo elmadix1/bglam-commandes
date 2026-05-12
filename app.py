@@ -392,14 +392,24 @@ def upload_images():
         url_map = {}
         yield f"data: {json.dumps({'type':'start','total':total})}\n\n"
         
-        for img_key, b64 in images.items():
-            url = upload_image_to_github(img_key, b64)
-            if url:
-                url_map[img_key] = url
-            done += 1
-            yield f"data: {json.dumps({'type':'progress','done':done,'total':total,'key':img_key})}\n\n"
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+        futures = {}
+        with ThreadPoolExecutor(max_workers=5) as executor:
+            for img_key, b64 in images.items():
+                futures[executor.submit(upload_image_to_github, img_key, b64)] = img_key
+            for future in as_completed(futures):
+                img_key2 = futures[future]
+                try:
+                    url = future.result()
+                except Exception:
+                    url = None
+                if url:
+                    url_map[img_key2] = url
+                done += 1
+                yield f"data: {json.dumps({'type':'progress','done':done,'total':total,'key':img_key2})}\n\n"
         
         yield f"data: {json.dumps({'type':'done','urls':url_map,'count':len(url_map)})}\n\n"
+
 
     response = make_response(generate())
     response.headers['Content-Type'] = 'text/event-stream'
