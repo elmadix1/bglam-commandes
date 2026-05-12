@@ -538,6 +538,44 @@ def generate_supplier_html(key, name, emoji, badge_type, sub):
         template = template.replace(old, new_val)
     return template
 
+
+@app.route('/supplier/delete', methods=['POST','OPTIONS'])
+def delete_supplier():
+    if request.method == 'OPTIONS': return make_response('', 204)
+    try:
+        data = request.get_json(force=True)
+        key = data.get('key','').lower()
+        if not key or key in ('rose','cassie','be','vicov'):
+            return jsonify({'error': 'Cannot delete default suppliers'}), 400
+        if DATABASE_URL:
+            conn = get_db(); cur = conn.cursor()
+            cur.execute('DELETE FROM fournisseurs WHERE key=%s', (key,))
+            conn.commit(); cur.close(); conn.close()
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/supplier/update', methods=['POST','OPTIONS'])
+def update_supplier():
+    if request.method == 'OPTIONS': return make_response('', 204)
+    try:
+        data = request.get_json(force=True)
+        key        = data.get('key','').lower()
+        name       = data.get('name', '')
+        emoji      = data.get('emoji', '🏪')
+        badge_type = data.get('badge_type', 'AUTRE')
+        sub        = data.get('sub', '')
+        if not key or not name:
+            return jsonify({'error': 'Key and name required'}), 400
+        if DATABASE_URL:
+            conn = get_db(); cur = conn.cursor()
+            cur.execute('UPDATE fournisseurs SET name=%s, emoji=%s, badge_type=%s, sub=%s WHERE key=%s',
+                       (name, emoji, badge_type, sub, key))
+            conn.commit(); cur.close(); conn.close()
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)

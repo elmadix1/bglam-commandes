@@ -24,6 +24,11 @@ h2{font-size:14px;font-weight:700;color:#888;text-transform:uppercase;letter-spa
 .stat-lbl{font-size:10px;color:#aaa;text-transform:uppercase}
 .card-add{border:2px dashed #ddd;background:#fafafa;color:#aaa;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-height:120px}
 .card-add:hover{border-color:#1D9E75;color:#1D9E75;background:#f0fdf8}
+.card-actions{position:absolute;top:10px;right:10px;display:flex;gap:4px;opacity:0;transition:opacity .2s}
+.card:hover .card-actions{opacity:1}
+.btn-edit,.btn-del{border:none;background:rgba(255,255,255,.9);border-radius:6px;width:28px;height:28px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,.15)}
+.btn-del:hover{background:#fff0f0}
+.btn-edit:hover{background:#f0fff4}
 .card-add span{font-size:28px}
 .card-add p{font-size:13px;font-weight:600}
 .bava{border-color:#fce7f3}
@@ -85,16 +90,24 @@ function updateTotals(){
 
 function makeCard(s){
   var bs = BADGE_STYLES[s.badge_type] || BADGE_STYLES['AUTRE'];
-  return '<a class="card '+bs.cardCls+'" href="'+s.key+'.html">'+
-    '<div class="card-icon">'+s.emoji+'</div>'+
-    '<div class="badge '+bs.cls+'">'+s.badge_type+'</div>'+
-    '<div class="card-name">'+s.name+'</div>'+
-    '<div class="card-sub">'+(s.sub||'')+'</div>'+
-    '<div class="card-stats">'+
-      '<div class="stat"><div class="stat-val" id="'+s.key+'-refs">0</div><div class="stat-lbl">Refs</div></div>'+
-      '<div class="stat"><div class="stat-val" id="'+s.key+'-sel">0</div><div class="stat-lbl">Sélectionnés</div></div>'+
-      '<div class="stat"><div class="stat-val" id="'+s.key+'-amt">$0</div><div class="stat-lbl">Total</div></div>'+
-    '</div>'+
+  // Store supplier data globally for edit access
+  window._suppliers = window._suppliers || {};
+  window._suppliers[s.key] = s;
+  var actions = '<div class="card-actions" onclick="event.preventDefault();event.stopPropagation()">' +
+    '<button class="btn-edit" onclick="openEditByKey(\''+s.key+'\')">✏️</button>' +
+    '<button class="btn-del" onclick="openDeleteByKey(\''+s.key+'\')">🗑</button>' +
+  '</div>';
+  return '<a class="card '+bs.cardCls+'" href="'+s.key+'.html" style="position:relative">' +
+    actions +
+    '<div class="card-icon">'+s.emoji+'</div>' +
+    '<div class="badge '+bs.cls+'">'+s.badge_type+'</div>' +
+    '<div class="card-name">'+s.name+'</div>' +
+    '<div class="card-sub">'+(s.sub||'')+'</div>' +
+    '<div class="card-stats">' +
+      '<div class="stat"><div class="stat-val" id="'+s.key+'-refs">0</div><div class="stat-lbl">Refs</div></div>' +
+      '<div class="stat"><div class="stat-val" id="'+s.key+'-sel">0</div><div class="stat-lbl">Sélectionnés</div></div>' +
+      '<div class="stat"><div class="stat-val" id="'+s.key+'-amt">$0</div><div class="stat-lbl">Total</div></div>' +
+    '</div>' +
   '</a>';
 }
 
@@ -258,6 +271,112 @@ function submitSupplier() {
     document.getElementById('f-status').textContent = '❌ Erreur réseau';
     btn.disabled = false; btn.textContent = '✓ Créer le fournisseur';
   });
+}
+</script>
+
+<!-- Modal modifier fournisseur -->
+<div id="editModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:12px;padding:28px;max-width:420px;width:90%;position:relative">
+    <h3 style="font-size:16px;font-weight:700;color:#1a1a2e;margin-bottom:20px">✏️ Modifier le fournisseur</h3>
+    <input type="hidden" id="e-key">
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div>
+        <label style="font-size:11px;font-weight:700;text-transform:uppercase;color:#666">Nom *</label>
+        <input id="e-name" type="text" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;margin-top:4px;font-size:13px">
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:700;text-transform:uppercase;color:#666">Emoji</label>
+        <input id="e-emoji" type="text" maxlength="2" style="width:60px;padding:8px;border:1px solid #ddd;border-radius:6px;margin-top:4px;font-size:20px;text-align:center">
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:700;text-transform:uppercase;color:#666">Type</label>
+        <select id="e-type" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;margin-top:4px;font-size:13px">
+          <option value="BAVA">BAVA</option>
+          <option value="VICOV">VICOV</option>
+          <option value="AUTRE">Autre</option>
+        </select>
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:700;text-transform:uppercase;color:#666">Description</label>
+        <input id="e-sub" type="text" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;margin-top:4px;font-size:13px">
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:700;text-transform:uppercase;color:#666">Mot de passe *</label>
+        <input id="e-pwd" type="password" placeholder="••••" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;margin-top:4px;font-size:13px">
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:20px">
+      <button onclick="submitEdit()" style="flex:1;padding:10px;background:#1a6eb5;color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer">✓ Enregistrer</button>
+      <button onclick="document.getElementById('editModal').style.display='none'" style="padding:10px 16px;background:#eee;border:none;border-radius:6px;font-size:13px;cursor:pointer">Annuler</button>
+    </div>
+    <div id="e-status" style="margin-top:10px;font-size:12px;text-align:center"></div>
+  </div>
+</div>
+
+<script>
+const PWD = '1234';
+
+function openEditByKey(key) {
+  var s = (window._suppliers || {})[key];
+  if (s) openEdit(s);
+}
+function openDeleteByKey(key) {
+  var s = (window._suppliers || {})[key];
+  if (s) confirmDelete(s.key, s.name);
+}
+function confirmDelete(key, name) {
+  var pwd = prompt('Supprimer "' + name + '" ?\nEntrez le mot de passe pour confirmer :');
+  if (pwd === null) return;
+  if (pwd !== PWD) { alert('Mot de passe incorrect'); return; }
+  if (!confirm('Supprimer définitivement "' + name + '" ?')) return;
+
+  fetch(BACKEND_URL + '/supplier/delete', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({key: key})
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(data){
+    if (data.ok) { window.location.reload(); }
+    else { alert('Erreur: ' + (data.error || 'Inconnue')); }
+  })
+  .catch(function(){ alert('Erreur réseau'); });
+}
+
+function openEdit(s) {
+  document.getElementById('e-key').value   = s.key;
+  document.getElementById('e-name').value  = s.name;
+  document.getElementById('e-emoji').value = s.emoji;
+  document.getElementById('e-type').value  = s.badge_type;
+  document.getElementById('e-sub').value   = s.sub || '';
+  document.getElementById('e-pwd').value   = '';
+  document.getElementById('e-status').textContent = '';
+  document.getElementById('editModal').style.display = 'flex';
+}
+
+function submitEdit() {
+  var pwd = document.getElementById('e-pwd').value;
+  if (pwd !== PWD) { document.getElementById('e-status').textContent = '❌ Mot de passe incorrect'; return; }
+
+  var payload = {
+    key:        document.getElementById('e-key').value,
+    name:       document.getElementById('e-name').value.trim(),
+    emoji:      document.getElementById('e-emoji').value.trim() || '🏪',
+    badge_type: document.getElementById('e-type').value,
+    sub:        document.getElementById('e-sub').value.trim()
+  };
+
+  fetch(BACKEND_URL + '/supplier/update', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(payload)
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(data){
+    if (data.ok) { window.location.reload(); }
+    else { document.getElementById('e-status').textContent = '❌ ' + (data.error||'Erreur'); }
+  })
+  .catch(function(){ document.getElementById('e-status').textContent = '❌ Erreur réseau'; });
 }
 </script>
 </body>
