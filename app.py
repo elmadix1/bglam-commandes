@@ -265,14 +265,7 @@ def extract_images():
 
 
 
-        # Upload to GitHub in parallel (5 workers) for speed
-        if GITHUB_TOKEN and result:
-            from concurrent.futures import ThreadPoolExecutor
-            def do_upload(item):
-                img_key, b64 = item
-                return upload_image_to_github(img_key, b64)
-            with ThreadPoolExecutor(max_workers=5) as executor:
-                list(executor.map(do_upload, result.items()))
+        # Images will be uploaded via /upload-images endpoint (SSE streaming)
 
         url_map = {}
         if GITHUB_TOKEN:
