@@ -31,6 +31,7 @@ h2{font-size:14px;font-weight:700;color:#888;text-transform:uppercase;letter-spa
 .badge{display:inline-block;font-size:10px;padding:2px 8px;border-radius:10px;font-weight:600;margin-bottom:8px}
 .badge-bava{background:#fce7f3;color:#9d174d}
 .badge-vicov{background:#dbeafe;color:#1e40af}
+.badge-autre{background:#f0fdf4;color:#166534}
 .total-bar{background:#1a1a2e;color:#fff;border-radius:10px;padding:16px 20px;margin-bottom:28px;display:flex;gap:24px;align-items:center;flex-wrap:wrap}
 .total-bar h3{font-size:13px;color:#888;margin-bottom:2px}
 .total-bar .big{font-size:22px;font-weight:700;color:#4ade80}
@@ -54,117 +55,210 @@ h2{font-size:14px;font-weight:700;color:#888;text-transform:uppercase;letter-spa
   </div>
 
   <h2>Fournisseurs BAVA</h2>
-  <div class="grid">
-    <a class="card bava" href="rose.html">
-      <div class="card-icon">🌹</div>
-      <div class="badge badge-bava">BAVA</div>
-      <div class="card-name">Rose</div>
-      <div class="card-sub">Onglerie · Accessoires</div>
-      <div class="card-stats">
-        <div class="stat"><div class="stat-val" id="rose-refs">0</div><div class="stat-lbl">Refs</div></div>
-        <div class="stat"><div class="stat-val" id="rose-sel">0</div><div class="stat-lbl">Sélectionnés</div></div>
-        <div class="stat"><div class="stat-val" id="rose-amt">$0</div><div class="stat-lbl">Total</div></div>
-      </div>
-    </a>
-    <a class="card bava" href="cassie.html">
-      <div class="card-icon">✨</div>
-      <div class="badge badge-bava">BAVA</div>
-      <div class="card-name">Cassie</div>
-      <div class="card-sub">Onglerie · Accessoires</div>
-      <div class="card-stats">
-        <div class="stat"><div class="stat-val" id="cassie-refs">0</div><div class="stat-lbl">Refs</div></div>
-        <div class="stat"><div class="stat-val" id="cassie-sel">0</div><div class="stat-lbl">Sélectionnés</div></div>
-        <div class="stat"><div class="stat-val" id="cassie-amt">$0</div><div class="stat-lbl">Total</div></div>
-      </div>
-    </a>
-    <a class="card bava" href="be.html">
-      <div class="card-icon">⚡</div>
-      <div class="badge badge-bava">BAVA</div>
-      <div class="card-name">BE</div>
-      <div class="card-sub">Onglerie · Machines</div>
-      <div class="card-stats">
-        <div class="stat"><div class="stat-val" id="be-refs">0</div><div class="stat-lbl">Refs</div></div>
-        <div class="stat"><div class="stat-val" id="be-sel">0</div><div class="stat-lbl">Sélectionnés</div></div>
-        <div class="stat"><div class="stat-val" id="be-amt">$0</div><div class="stat-lbl">Total</div></div>
-      </div>
-    </a>
-  </div>
+  <div class="grid" id="grid-bava"></div>
 
   <h2>Autres fournisseurs</h2>
-  <div class="grid">
-    <a class="card vicov" href="vicov.html">
-      <div class="card-icon">🔧</div>
-      <div class="badge badge-vicov">VICOV</div>
-      <div class="card-name">VICOV</div>
-      <div class="card-sub">Machines · Équipements</div>
-      <div class="card-stats">
-        <div class="stat"><div class="stat-val" id="vicov-refs">0</div><div class="stat-lbl">Refs</div></div>
-        <div class="stat"><div class="stat-val" id="vicov-sel">0</div><div class="stat-lbl">Sélectionnés</div></div>
-        <div class="stat"><div class="stat-val" id="vicov-amt">$0</div><div class="stat-lbl">Total</div></div>
-      </div>
-    </a>
-    <a class="card card-add" href="#" onclick="alert('Fonctionnalité à venir — contacte Mo pour ajouter un fournisseur')">
+  <div class="grid" id="grid-autres">
+    <div class="card card-add" onclick="openAddSupplier()">
       <span>+</span>
       <p>Nouveau fournisseur</p>
-    </a>
+    </div>
   </div>
 
 </div>
 
 <script>
 const BACKEND_URL = 'https://bglam-commandes-gbzy-production.up.railway.app';
+const BADGE_STYLES = {
+  'BAVA':  {cls:'badge-bava', cardCls:'bava'},
+  'VICOV': {cls:'badge-vicov', cardCls:'vicov'},
+  'AUTRE': {cls:'badge-autre', cardCls:'autre'},
+};
 
-// Suppliers stored in localStorage
-const LOCAL_SUPPLIERS = ['rose','cassie','be'];
-// Suppliers stored in PostgreSQL
-const SERVER_SUPPLIERS = ['vicov'];
+let totalAmt=0, totalSupp=0, totalRefs=0;
 
-let totalAmt = 0, totalSupp = 0, totalRefs = 0;
-
-function updateTotals() {
-  document.getElementById('totalAmt').textContent = '$'+totalAmt.toFixed(2);
-  document.getElementById('totalSupp').textContent = totalSupp;
-  document.getElementById('totalRefs').textContent = totalRefs;
+function updateTotals(){
+  document.getElementById('totalAmt').textContent='$'+totalAmt.toFixed(2);
+  document.getElementById('totalSupp').textContent=totalSupp;
+  document.getElementById('totalRefs').textContent=totalRefs;
 }
 
-function setStats(key, refs, sel, amt) {
-  document.getElementById(key+'-refs').textContent = refs;
-  document.getElementById(key+'-sel').textContent = sel;
-  document.getElementById(key+'-amt').textContent = '$'+amt.toFixed(0);
-  if (sel > 0) { totalSupp++; totalRefs += sel; totalAmt += amt; }
-  updateTotals();
+function makeCard(s){
+  var bs = BADGE_STYLES[s.badge_type] || BADGE_STYLES['AUTRE'];
+  return '<a class="card '+bs.cardCls+'" href="'+s.key+'.html">'+
+    '<div class="card-icon">'+s.emoji+'</div>'+
+    '<div class="badge '+bs.cls+'">'+s.badge_type+'</div>'+
+    '<div class="card-name">'+s.name+'</div>'+
+    '<div class="card-sub">'+(s.sub||'')+'</div>'+
+    '<div class="card-stats">'+
+      '<div class="stat"><div class="stat-val" id="'+s.key+'-refs">0</div><div class="stat-lbl">Refs</div></div>'+
+      '<div class="stat"><div class="stat-val" id="'+s.key+'-sel">0</div><div class="stat-lbl">Sélectionnés</div></div>'+
+      '<div class="stat"><div class="stat-val" id="'+s.key+'-amt">$0</div><div class="stat-lbl">Total</div></div>'+
+    '</div>'+
+  '</a>';
 }
 
-// Load localStorage suppliers
-LOCAL_SUPPLIERS.forEach(key => {
-  try {
-    const cat = JSON.parse(localStorage.getItem('bg_cat_'+key)||'[]');
-    const qty = JSON.parse(localStorage.getItem('bg_qty_'+key)||'{}');
-    const refs = cat.length;
-    const sel = cat.filter(r => qty[r.id] > 0).length;
-    const amt = cat.filter(r => qty[r.id] > 0 && r.price != null)
-                   .reduce((sum, r) => sum + (qty[r.id]||0) * r.price, 0);
-    setStats(key, refs, sel, amt);
-  } catch(e) {}
-});
+function loadSupplierStats(s){
+  // Try localStorage first (fast)
+  var cat = JSON.parse(localStorage.getItem('bg_cat_'+s.key)||'[]');
+  var qty = JSON.parse(localStorage.getItem('bg_qty_'+s.key)||'{}');
+  
+  if(cat.length > 0){
+    showStats(s.key, cat, qty);
+  } else {
+    // Try cached count
+    var cached = parseInt(localStorage.getItem('bg_refcount_'+s.key)||'0');
+    if(cached > 0) document.getElementById(s.key+'-refs').textContent = cached;
+  }
 
-// Load PostgreSQL suppliers
-SERVER_SUPPLIERS.forEach(key => {
-  fetch(BACKEND_URL+'/catalogue/'+key+'/load')
-    .then(r => r.json())
-    .then(data => {
-      if (data.ok && data.items) {
-        const cat = data.items;
-        const qty = JSON.parse(localStorage.getItem('bg_qty_'+key)||'{}');
-        const refs = cat.length;
-        const sel = cat.filter(r => qty[r.id] > 0).length;
-        const amt = cat.filter(r => qty[r.id] > 0 && r.price != null)
-                       .reduce((sum, r) => sum + (qty[r.id]||0) * r.price, 0);
-        setStats(key, refs, sel, amt);
+  // Always fetch from server for accurate count
+  fetch(BACKEND_URL+'/catalogue/'+s.key+'/load')
+    .then(function(r){ return r.json(); })
+    .then(function(data){
+      if(data.ok && data.items && data.items.length > 0){
+        var serverCat = data.items;
+        localStorage.setItem('bg_refcount_'+s.key, serverCat.length);
+        showStats(s.key, serverCat, qty);
       }
     })
-    .catch(() => {});
+    .catch(function(){});
+}
+
+function showStats(key, cat, qty){
+  var refs = cat.length;
+  var sel = cat.filter(function(r){ return qty[r.id]>0; }).length;
+  var amt = cat.filter(function(r){ return qty[r.id]>0 && r.price!=null; })
+               .reduce(function(s,r){ return s+(qty[r.id]||0)*r.price; }, 0);
+  var refsEl = document.getElementById(key+'-refs');
+  var selEl  = document.getElementById(key+'-sel');
+  var amtEl  = document.getElementById(key+'-amt');
+  if(refsEl) refsEl.textContent = refs;
+  if(selEl)  selEl.textContent  = sel;
+  if(amtEl)  amtEl.textContent  = '$'+amt.toFixed(0);
+  if(sel>0){ totalSupp++; totalRefs+=sel; totalAmt+=amt; updateTotals(); }
+}
+
+// Load all suppliers from DB
+fetch(BACKEND_URL+'/suppliers')
+  .then(function(r){ return r.json(); })
+  .then(function(data){
+    if(!data.ok) return;
+    var bava  = data.suppliers.filter(function(s){ return s.badge_type==='BAVA'; });
+    var autres = data.suppliers.filter(function(s){ return s.badge_type!=='BAVA'; });
+
+    document.getElementById('grid-bava').innerHTML = bava.map(makeCard).join('');
+    var autresGrid = document.getElementById('grid-autres');
+    var addBtn = autresGrid.querySelector('.card-add').outerHTML;
+    autresGrid.innerHTML = autres.map(makeCard).join('') + addBtn;
+
+    data.suppliers.forEach(loadSupplierStats);
+  })
+  .catch(function(){
+    // Fallback: show static cards
+    document.getElementById('grid-bava').innerHTML = 
+      '<a class="card bava" href="rose.html"><div class="card-icon">🌹</div><div class="badge badge-bava">BAVA</div><div class="card-name">Rose</div></a>'+
+      '<a class="card bava" href="cassie.html"><div class="card-icon">✨</div><div class="badge badge-bava">BAVA</div><div class="card-name">Cassie</div></a>'+
+      '<a class="card bava" href="be.html"><div class="card-icon">⚡</div><div class="badge badge-bava">BAVA</div><div class="card-name">BE</div></a>';
+    document.getElementById('grid-autres').innerHTML = 
+      '<a class="card vicov" href="vicov.html"><div class="card-icon">🔧</div><div class="badge badge-vicov">VICOV</div><div class="card-name">VICOV</div></a>'+
+      '<div class="card card-add" onclick="openAddSupplier()"><span>+</span><p>Nouveau fournisseur</p></div>';
+  });
+</script>
+
+<!-- Modal ajout fournisseur -->
+<div id="addModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:12px;padding:28px;max-width:420px;width:90%;position:relative">
+    <h3 style="font-size:16px;font-weight:700;color:#1a1a2e;margin-bottom:20px">➕ Nouveau fournisseur</h3>
+    
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div>
+        <label style="font-size:11px;font-weight:700;text-transform:uppercase;color:#666">Nom *</label>
+        <input id="f-name" type="text" placeholder="ex: EMEDA" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;margin-top:4px;font-size:13px">
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:700;text-transform:uppercase;color:#666">Clé (identifiant unique) *</label>
+        <input id="f-key" type="text" placeholder="ex: emeda" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;margin-top:4px;font-size:13px">
+        <div style="font-size:10px;color:#aaa;margin-top:3px">Lettres minuscules et chiffres uniquement</div>
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:700;text-transform:uppercase;color:#666">Emoji</label>
+        <input id="f-emoji" type="text" placeholder="🏪" maxlength="2" style="width:60px;padding:8px;border:1px solid #ddd;border-radius:6px;margin-top:4px;font-size:20px;text-align:center">
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:700;text-transform:uppercase;color:#666">Type</label>
+        <select id="f-type" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;margin-top:4px;font-size:13px">
+          <option value="BAVA">BAVA</option>
+          <option value="VICOV">VICOV</option>
+          <option value="AUTRE">Autre</option>
+        </select>
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:700;text-transform:uppercase;color:#666">Description</label>
+        <input id="f-sub" type="text" placeholder="ex: Extensions de cils" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;margin-top:4px;font-size:13px">
+      </div>
+    </div>
+    
+    <div style="display:flex;gap:8px;margin-top:20px">
+      <button onclick="submitSupplier()" id="f-submit" style="flex:1;padding:10px;background:#1D9E75;color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer">✓ Créer le fournisseur</button>
+      <button onclick="closeAddSupplier()" style="padding:10px 16px;background:#eee;border:none;border-radius:6px;font-size:13px;cursor:pointer">Annuler</button>
+    </div>
+    <div id="f-status" style="margin-top:10px;font-size:12px;text-align:center"></div>
+  </div>
+</div>
+
+<script>
+// Auto-generate key from name
+document.getElementById('f-name').addEventListener('input', function() {
+  var key = this.value.toLowerCase()
+    .replace(/[éèêë]/g,'e').replace(/[àâä]/g,'a').replace(/[îï]/g,'i')
+    .replace(/[ôö]/g,'o').replace(/[ùûü]/g,'u').replace(/[^a-z0-9]/g,'');
+  document.getElementById('f-key').value = key;
 });
+
+function openAddSupplier() {
+  var m = document.getElementById('addModal');
+  m.style.display = 'flex';
+}
+function closeAddSupplier() {
+  document.getElementById('addModal').style.display = 'none';
+  document.getElementById('f-status').textContent = '';
+  ['f-name','f-key','f-emoji','f-sub'].forEach(function(id){ document.getElementById(id).value = ''; });
+  document.getElementById('f-type').value = 'BAVA';
+}
+
+function submitSupplier() {
+  var name  = document.getElementById('f-name').value.trim();
+  var key   = document.getElementById('f-key').value.trim();
+  var emoji = document.getElementById('f-emoji').value.trim() || '🏪';
+  var type  = document.getElementById('f-type').value;
+  var sub   = document.getElementById('f-sub').value.trim();
+
+  if (!name || !key) { document.getElementById('f-status').textContent = '❌ Nom et clé obligatoires'; return; }
+
+  var btn = document.getElementById('f-submit');
+  btn.disabled = true; btn.textContent = '⏳ Création en cours...';
+  document.getElementById('f-status').textContent = 'Upload sur GitHub...';
+
+  fetch(BACKEND_URL + '/supplier/create', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({key: key, name: name, emoji: emoji, badge_type: type, sub: sub})
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(data){
+    if (data.ok) {
+      document.getElementById('f-status').textContent = '✅ Fournisseur créé ! Rechargement...';
+      setTimeout(function(){ window.location.reload(); }, 2000);
+    } else {
+      document.getElementById('f-status').textContent = '❌ ' + (data.error || 'Erreur');
+      btn.disabled = false; btn.textContent = '✓ Créer le fournisseur';
+    }
+  })
+  .catch(function(e){
+    document.getElementById('f-status').textContent = '❌ Erreur réseau';
+    btn.disabled = false; btn.textContent = '✓ Créer le fournisseur';
+  });
+}
 </script>
 </body>
 </html>

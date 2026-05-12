@@ -46,6 +46,29 @@ def init_db():
                 updated_at TIMESTAMP DEFAULT NOW()
             )
         ''')
+        cur.execute('''
+            CREATE TABLE IF NOT EXISTS suppliers (
+                key        VARCHAR(50) PRIMARY KEY,
+                name       VARCHAR(100) NOT NULL,
+                emoji      VARCHAR(10)  DEFAULT '🏪',
+                badge_type VARCHAR(20)  DEFAULT 'AUTRE',
+                sub        VARCHAR(200) DEFAULT '',
+                created_at TIMESTAMP DEFAULT NOW()
+            )
+        ''')
+        # Insert default suppliers if not exists
+        defaults = [
+            ('rose',   'Rose',   '🌹', 'BAVA',  'Onglerie · Accessoires'),
+            ('cassie', 'Cassie', '✨', 'BAVA',  'Onglerie · Accessoires'),
+            ('be',     'BE',     '⚡', 'BAVA',  'Onglerie · Machines'),
+            ('vicov',  'VICOV',  '🔧', 'VICOV', 'Machines · Équipements'),
+        ]
+        for d in defaults:
+            cur.execute('''
+                INSERT INTO suppliers (key, name, emoji, badge_type, sub)
+                VALUES (%s, %s, %s, %s, %s)
+                ON CONFLICT (key) DO NOTHING
+            ''', d)
         conn.commit()
         cur.close()
         conn.close()
@@ -417,6 +440,103 @@ def upload_images():
     response.headers['X-Accel-Buffering'] = 'no'
     response.headers['Access-Control-Allow-Origin'] = '*'
     return response
+
+
+
+@app.route('/suppliers', methods=['GET','OPTIONS'])
+def list_suppliers():
+    if request.method == 'OPTIONS': return make_response('', 204)
+    try:
+        if DATABASE_URL:
+            conn = get_db(); cur = conn.cursor()
+            cur.execute('SELECT key, name, emoji, badge_type, sub FROM suppliers ORDER BY created_at')
+            rows = cur.fetchall()
+            cur.close(); conn.close()
+            return jsonify({'ok': True, 'suppliers': [
+                {'key': r[0], 'name': r[1], 'emoji': r[2], 'badge_type': r[3], 'sub': r[4]}
+                for r in rows
+            ]})
+        return jsonify({'ok': False, 'suppliers': []})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/supplier/create', methods=['POST','OPTIONS'])
+def create_supplier():
+    if request.method == 'OPTIONS': return make_response('', 204)
+    try:
+        data = request.get_json(force=True)
+        key        = re.sub(r'[^a-z0-9_]', '', data.get('key','').lower())
+        name       = data.get('name', key)
+        emoji      = data.get('emoji', '🏪')
+        badge_type = data.get('badge_type', 'AUTRE')
+        sub        = data.get('sub', '')
+
+        if not key:
+            return jsonify({'error': 'Key required'}), 400
+
+        html = generate_supplier_html(key, name, emoji, badge_type, sub)
+
+        if GITHUB_TOKEN:
+            import urllib.request as ur
+            import base64 as b64m
+            filename = f"{key}.html"
+            api_url = f"https://api.github.com/repos/{GITHUB_REPO}/contents/{filename}"
+            gh_headers = {
+                'Authorization': f'token {GITHUB_TOKEN}',
+                'Accept': 'application/vnd.github.v3+json',
+                'Content-Type': 'application/json'
+            }
+            content = b64m.b64encode(html.encode('utf-8')).decode('utf-8')
+            payload = {'message': f'Add supplier {name}', 'content': content, 'branch': GITHUB_BRANCH}
+            req = ur.Request(api_url, data=json.dumps(payload).encode(), method='PUT', headers=gh_headers)
+            try:
+                with ur.urlopen(req) as resp:
+                    json.loads(resp.read())
+            except Exception as e:
+                return jsonify({'error': f'GitHub: {e}'}), 500
+
+        if DATABASE_URL:
+            conn = get_db(); cur = conn.cursor()
+            sql = 'INSERT INTO suppliers (key, name, emoji, badge_type, sub) VALUES (%s,%s,%s,%s,%s) ON CONFLICT (key) DO UPDATE SET name=EXCLUDED.name, emoji=EXCLUDED.emoji, badge_type=EXCLUDED.badge_type, sub=EXCLUDED.sub'
+            cur.execute(sql, (key, name, emoji, badge_type, sub))
+            conn.commit(); cur.close(); conn.close()
+
+        return jsonify({'ok': True, 'key': key})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+def generate_supplier_html(key, name, emoji, badge_type, sub):
+    badge_colors = {
+        'BAVA':  'background:#fce7f3;color:#9d174d',
+        'VICOV': 'background:#dbeafe;color:#1e40af',
+        'AUTRE': 'background:#f0fdf4;color:#166534',
+    }
+    badge_style = badge_colors.get(badge_type, badge_colors['AUTRE'])
+    import urllib.request as ur
+    try:
+        url = f"https://raw.githubusercontent.com/{GITHUB_REPO}/main/rose.html"
+        with ur.urlopen(url) as resp:
+            template = resp.read().decode('utf-8')
+    except Exception as e:
+        return f"<html><body>Error: {e}</body></html>"
+
+    replacements = {
+        "var SK='rose'": f"var SK='{key}'",
+        "var SN='BAVA-Rose'": f"var SN='{name}'",
+        ">BAVA-Rose</div>": f">{name}</div>",
+        "Rose ici": f"{name} ici",
+        "catalogue BAVA-Rose": f"catalogue {name}",
+        ">🌹<": f">{emoji}<",
+        "background:#fce7f3;color:#9d174d": badge_style,
+        "<title>BGlam · BAVA-Rose<": f"<title>BGlam · {name}<",
+        "var BACKEND_URL = 'https://bglam-commandes-production.up.railway.app';":
+            f"var BACKEND_URL = 'https://bglam-commandes-gbzy-production.up.railway.app';",
+    }
+    for old, new_val in replacements.items():
+        template = template.replace(old, new_val)
+    return template
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
