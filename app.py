@@ -55,11 +55,12 @@ def init_db():
 
 init_db()
 
-def upload_image_to_github(ref, b64_data):
+def upload_image_to_github(ref, b64_data, retries=3):
     """Upload a base64 image to GitHub repo and return its URL."""
     if not GITHUB_TOKEN:
         return None
-    try:
+    for attempt in range(retries):
+     try:
         import urllib.request, urllib.error
         # Strip data URI prefix if present
         if b64_data.startswith('data:'):
@@ -110,7 +111,6 @@ def upload_image_to_github(ref, b64_data):
             return f"{IMAGES_BASE_URL}/{filename}"
     except urllib.error.HTTPError as he:
         if he.code == 409:
-            # Conflict — try to get SHA and force update
             try:
                 req2 = urllib.request.Request(api_url, headers={
                     'Authorization': f'token {GITHUB_TOKEN}',
@@ -133,11 +133,19 @@ def upload_image_to_github(ref, b64_data):
             except Exception:
                 pass
             return f"{IMAGES_BASE_URL}/{filename}"
+        if attempt < retries - 1:
+            import time; time.sleep(2)
+            continue
         print(f"GitHub upload error for {ref}: {he}")
         return None
     except Exception as e:
+        if attempt < retries - 1:
+            import time; time.sleep(2)
+            continue
         print(f"GitHub upload error for {ref}: {e}")
         return None
+    break
+    return None
 
 def hex_fill(h): return PatternFill("solid", fgColor=h)
 def thin_border():
