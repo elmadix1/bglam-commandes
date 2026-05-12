@@ -338,12 +338,19 @@ def generate_excel():
             if ci in (6,7,9,10): cell.alignment=Alignment(horizontal="right",vertical="center")
             if ci==10 and amt is not None: cell.font=Font(name="Arial",size=10,bold=True,color=GREEN)
         ws.row_dimensions[r].height=62
-        img_b64=item.get("img","")
-        if img_b64 and len(img_b64)>100:
+        img_src=item.get("img","")
+        if img_src and len(img_src)>5:
             try:
-                pil=base64_to_pil(img_b64); buf=pil_to_png(pil,(60,60))
+                if img_src.startswith('http'):
+                    import urllib.request
+                    with urllib.request.urlopen(img_src, timeout=10) as resp:
+                        img_data = resp.read()
+                    pil=PILImage.open(io.BytesIO(img_data)).convert('RGBA')
+                else:
+                    pil=base64_to_pil(img_src)
+                buf=pil_to_png(pil,(60,60))
                 xl=XLImage(buf); xl.anchor=f"A{r}"; ws.add_image(xl)
-            except: pass
+            except Exception as e: print(f"Img error {item.get('ref','?')}: {e}")
         cell=ws.cell(row=r,column=1,value=""); cell.fill=hex_fill(bg); cell.border=thin_border()
 
     tr=HR+1+len(items); tq=sum((item.get("qty") or 0) for item in items)
