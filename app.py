@@ -523,16 +523,14 @@ def generate_supplier_html(key, name, emoji, badge_type, sub):
         return f"<html><body>Error: {e}</body></html>"
 
     replacements = {
-        "var SK='rose'": f"var SK='{key}'",
-        "var SN='BAVA-Rose'": f"var SN='{name}'",
+        "var SK='rose', SN='BAVA-Rose'": f"var SK='{key}', SN='{name}'",
         ">BAVA-Rose</div>": f">{name}</div>",
-        "Rose ici": f"{name} ici",
+        "Glisse le fichier Excel Rose ici": f"Glisse le fichier Excel {name} ici",
         "catalogue BAVA-Rose": f"catalogue {name}",
         ">🌹<": f">{emoji}<",
         "background:#fce7f3;color:#9d174d": badge_style,
         "<title>BGlam · BAVA-Rose<": f"<title>BGlam · {name}<",
-        "var BACKEND_URL = 'https://bglam-commandes-production.up.railway.app';":
-            f"var BACKEND_URL = 'https://bglam-commandes-gbzy-production.up.railway.app';",
+        "Importer / Mettre à jour le catalogue BAVA-Rose": f"Importer / Mettre à jour le catalogue {name}",
     }
     for old, new_val in replacements.items():
         template = template.replace(old, new_val)
@@ -582,7 +580,7 @@ def delete_supplier():
             cur.execute('DELETE FROM fournisseurs WHERE key=%s', (key,))
             conn.commit(); cur.close(); conn.close()
 
-        return jsonify({'ok': True, 'gh_error': gh_error})
+        return jsonify({'ok': True})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
