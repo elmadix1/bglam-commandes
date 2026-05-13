@@ -277,7 +277,7 @@ def extract_images():
             ref = row_to_ref.get(img_row)
             group = row_to_group.get(img_row)
             if not ref:
-                for off in range(-5, 6):
+                for off in range(-15, 16):
                     ref = row_to_ref.get(img_row+off)
                     group = row_to_group.get(img_row+off)
                     if ref: break
