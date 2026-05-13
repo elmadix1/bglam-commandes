@@ -547,10 +547,36 @@ def delete_supplier():
         key = data.get('key','').lower()
         if not key or key in ('rose','cassie','be','vicov'):
             return jsonify({'error': 'Cannot delete default suppliers'}), 400
+
+        # Delete HTML file from GitHub
+        if GITHUB_TOKEN:
+            import urllib.request as ur
+            filename = f"{key}.html"
+            api_url = f"https://api.github.com/repos/{GITHUB_REPO}/contents/{filename}"
+            gh_headers = {
+                'Authorization': f'token {GITHUB_TOKEN}',
+                'Accept': 'application/vnd.github.v3+json',
+            }
+            try:
+                # Get file SHA first
+                req = ur.Request(api_url, headers=gh_headers)
+                with ur.urlopen(req) as resp:
+                    file_info = json.loads(resp.read())
+                    sha = file_info.get('sha')
+                if sha:
+                    payload = {'message': f'Delete supplier {key}', 'sha': sha, 'branch': GITHUB_BRANCH}
+                    req = ur.Request(api_url, data=json.dumps(payload).encode(), method='DELETE', headers={**gh_headers, 'Content-Type': 'application/json'})
+                    with ur.urlopen(req) as resp:
+                        json.loads(resp.read())
+            except Exception as e:
+                print(f"GitHub delete error: {e}")
+
+        # Delete from DB
         if DATABASE_URL:
             conn = get_db(); cur = conn.cursor()
             cur.execute('DELETE FROM fournisseurs WHERE key=%s', (key,))
             conn.commit(); cur.close(); conn.close()
+
         return jsonify({'ok': True})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
