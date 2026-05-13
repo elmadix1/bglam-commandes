@@ -557,18 +557,23 @@ def delete_supplier():
                 'Authorization': f'token {GITHUB_TOKEN}',
                 'Accept': 'application/vnd.github.v3+json',
             }
+            gh_error = None
             try:
-                # Get file SHA first
                 req = ur.Request(api_url, headers=gh_headers)
                 with ur.urlopen(req) as resp:
                     file_info = json.loads(resp.read())
                     sha = file_info.get('sha')
                 if sha:
                     payload = {'message': f'Delete supplier {key}', 'sha': sha, 'branch': GITHUB_BRANCH}
-                    req = ur.Request(api_url, data=json.dumps(payload).encode(), method='DELETE', headers={**gh_headers, 'Content-Type': 'application/json'})
+                    del_headers = dict(gh_headers)
+                    del_headers['Content-Type'] = 'application/json'
+                    req = ur.Request(api_url, data=json.dumps(payload).encode(), method='DELETE', headers=del_headers)
                     with ur.urlopen(req) as resp:
                         json.loads(resp.read())
+                else:
+                    gh_error = 'SHA not found'
             except Exception as e:
+                gh_error = str(e)
                 print(f"GitHub delete error: {e}")
 
         # Delete from DB
@@ -577,7 +582,7 @@ def delete_supplier():
             cur.execute('DELETE FROM fournisseurs WHERE key=%s', (key,))
             conn.commit(); cur.close(); conn.close()
 
-        return jsonify({'ok': True})
+        return jsonify({'ok': True, 'gh_error': gh_error})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
