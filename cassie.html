@@ -195,12 +195,37 @@ tr.hq:hover td{background:#d5f5e8}
 </div>
 <div class="toast" id="toast"></div>
 <script>
-var SK='cassie', SN='BAVA-Rose';
+var SK='cassie', SN='BAVA-Cassie';
+var BACKEND_URL = 'https://bglam-commandes-gbzy-production.up.railway.app';
 var CATS=['Onglerie','Extensions de cils','Accessoires pour cils','Cheveux','Soins de la peau et des pieds','Cosmétiques','Soins personnels','Parfum','Chauffe-cire','Machines','Massage','Ameublement','Rangement et organisateurs','Salon de Coiffure et Barbier','Salon Accessories','Nouveauté','Offre','Non classé'];
 var catalogue=[], qtys={}, nextId=1, activeTab='all', sortKey=null, sortAsc=true, parsedRows=[], parsedHeaders=[];
 
-function save(){try{localStorage.setItem('bg_cat_'+SK,JSON.stringify(catalogue));localStorage.setItem('bg_qty_'+SK,JSON.stringify(qtys));}catch(e){}}
-function loadSaved(){try{var c=localStorage.getItem('bg_cat_'+SK),q=localStorage.getItem('bg_qty_'+SK);if(c){catalogue=JSON.parse(c);var ids=catalogue.map(function(r){return r.id;});nextId=(ids.length?Math.max.apply(null,ids):0)+1;}if(q)qtys=JSON.parse(q);}catch(e){}}
+function save(){
+  try { localStorage.setItem('bg_qty_'+SK, JSON.stringify(qtys)); } catch(e) {}
+  saveCatalogueToServer();
+}
+function saveCatalogueToServer(){
+  if(!catalogue.length) return;
+  fetch(BACKEND_URL+'/catalogue/'+SK+'/save', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({items: catalogue})
+  }).catch(function(){});
+}
+function loadSaved(){
+  try { var q=localStorage.getItem('bg_qty_'+SK); if(q) qtys=JSON.parse(q); } catch(e) {}
+  fetch(BACKEND_URL+'/catalogue/'+SK+'/load')
+    .then(function(r){ return r.json(); })
+    .then(function(data){
+      if(data.ok && data.items && data.items.length > 0){
+        catalogue = data.items;
+        var ids = catalogue.map(function(r){ return r.id; });
+        nextId = (ids.length ? Math.max.apply(null,ids) : 0) + 1;
+        toast('Catalogue chargé : '+catalogue.length+' références');
+      }
+      render();
+    })
+    .catch(function(){ render(); });
+}
 
 function handlePhotoDrop(e,id){e.preventDefault();e.currentTarget.classList.remove('dragover');var f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0];if(f&&f.type.indexOf('image/')===0)readImg(f,id);}
 function handlePhotoFile(inp,id){if(inp.files[0])readImg(inp.files[0],id);}
@@ -214,24 +239,91 @@ var ALIASES={ref:['item no','item no.','ref','reference','sku','code'],desc:['de
 function matchCol(h){var lh=h.toLowerCase().trim();for(var f in ALIASES){var als=ALIASES[f];for(var i=0;i<als.length;i++){if(lh.indexOf(als[i])!==-1||als[i].indexOf(lh)!==-1)return f;}}return null;}
 
 var pendingImageMap = {};
+var pendingUrlMap = {};
+
+function resetImportBtn(){
+  var btn = document.getElementById('importBtn');
+  if(btn){ btn.disabled=true; btn.style.opacity='.5'; btn.style.cursor='not-allowed'; btn.textContent='⏳ Extraction en cours...'; }
+}
 
 function handleXlsFile(file){
   var log=document.getElementById('ilog');log.style.display='block';log.textContent='"'+file.name+'" en cours...\n';
-  pendingImageMap = {};
+  pendingImageMap = {}; pendingUrlMap = {};
+  resetImportBtn();
 
-  // 1. Extract images via backend
   var formData = new FormData();
   formData.append('file', file);
   log.textContent += '🖼 Extraction des photos depuis Excel...\n';
+
   fetch(BACKEND_URL+'/extract-images', {method:'POST', body:formData})
     .then(function(res){ return res.json(); })
     .then(function(data){
-      if(data.images){
+      if(data.images && Object.keys(data.images).length > 0){
         pendingImageMap = data.images;
+        var total = Object.keys(data.images).length;
         log.textContent += '✓ '+data.matched+' photos extraites sur '+data.total_refs+' références\n';
+        log.textContent += '⬆️ Upload GitHub en cours : 0/'+total+'\n';
+        fetch(BACKEND_URL+'/upload-images', {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({images: data.images})
+        }).then(function(res){
+          var reader = res.body.getReader();
+          var decoder = new TextDecoder();
+          var buffer = '';
+          function read(){
+            reader.read().then(function(result){
+              if(result.done){
+                var btn2 = document.getElementById('importBtn');
+                if(btn2){ btn2.disabled=false; btn2.style.opacity='1'; btn2.style.cursor='pointer'; btn2.textContent='✓ Importer et fusionner'; }
+                return;
+              }
+              buffer += decoder.decode(result.value, {stream:true});
+              var parts = buffer.split('\n\n'); buffer = parts.pop();
+              parts.forEach(function(part){
+                if(part.startsWith('data: ')){
+                  try{
+                    var evt = JSON.parse(part.slice(6));
+                    if(evt.type==='progress'){
+                      var lines2 = log.textContent.split('\n');
+                      for(var i=lines2.length-1;i>=0;i--){
+                        if(lines2[i].startsWith('⬆️')){ lines2[i]='⬆️ Upload GitHub : '+evt.done+'/'+evt.total+' ('+Math.round(evt.done/evt.total*100)+'%)'; break; }
+                      }
+                      log.textContent = lines2.join('\n'); log.scrollTop = log.scrollHeight;
+                    } else if(evt.type==='done'){
+                      pendingUrlMap = evt.urls || {};
+                      var lines2 = log.textContent.split('\n');
+                      for(var i=lines2.length-1;i>=0;i--){
+                        if(lines2[i].startsWith('⬆️')){ lines2[i]='✅ '+evt.count+' images uploadées sur GitHub'; break; }
+                      }
+                      log.textContent = lines2.join('\n');
+                      log.textContent += '👉 Tu peux maintenant cliquer "Importer et fusionner"\n';
+                      log.scrollTop = log.scrollHeight;
+                      var btn2 = document.getElementById('importBtn');
+                      if(btn2){ btn2.disabled=false; btn2.style.opacity='1'; btn2.style.cursor='pointer'; btn2.textContent='✓ Importer et fusionner'; }
+                    }
+                  }catch(e){}
+                }
+              });
+              read();
+            });
+          }
+          read();
+        }).catch(function(){
+          log.textContent += '⚠️ Upload GitHub échoué\n';
+          var btn2 = document.getElementById('importBtn');
+          if(btn2){ btn2.disabled=false; btn2.style.opacity='1'; btn2.style.cursor='pointer'; btn2.textContent='✓ Importer (sans photos)'; }
+        });
+      } else {
+        log.textContent += '⚠️ Aucune photo dans ce fichier\n';
+        var btn2 = document.getElementById('importBtn');
+        if(btn2){ btn2.disabled=false; btn2.style.opacity='1'; btn2.style.cursor='pointer'; btn2.textContent='✓ Importer (sans photos)'; }
       }
     })
-    .catch(function(){ log.textContent += '⚠️ Photos non extraites (backend indisponible)\n'; })
+    .catch(function(){
+      log.textContent += '⚠️ Photos non extraites — import sans photos possible\n';
+      var btn = document.getElementById('importBtn');
+      if(btn){ btn.disabled=false; btn.style.opacity='1'; btn.style.cursor='pointer'; btn.textContent='✓ Importer (sans photos)'; }
+    })
     .finally(function(){
       // 2. Parse Excel data with SheetJS
       var reader=new FileReader();
@@ -282,6 +374,9 @@ function runImport(){
     var cat=cC>=0?String(row[cC]||'').trim():'';
     var remark=rkC>=0?String(row[rkC]||'').trim():'';
     var img=iC>=0?String(row[iC]||'').trim():'';
+    var imgKey = group ? (ref + '_' + group) : ref;
+    var githubUrl = pendingUrlMap[imgKey] || pendingUrlMap[ref] || '';
+    var imgData = githubUrl || pendingImageMap[imgKey] || pendingImageMap[ref] || '';
     var ex=catalogue.find(function(c){return c.ref===ref;});
     if(ex){
       var ch=false;
@@ -291,12 +386,10 @@ function runImport(){
       if(desc&&ex.desc!==desc){ex.desc=desc;ch=true;}
       if(cat&&!ex.cat){ex.cat=cat;ch=true;}
       if(remark&&!ex.remark){ex.remark=remark;ch=true;}
-      if(img&&!ex.img){ex.img=img;ch=true;}
-      // Also apply extracted image from backend if available
-      if(pendingImageMap[ref]&&!ex.img){ex.img=pendingImageMap[ref];ch=true;}
+      if(imgData&&!ex.img){ex.img=imgData;ch=true;}
       ch?updated++:skipped++;
     }else{
-      catalogue.push({id:nextId++,group:group,ref:ref,desc:desc||ref,cat:cat||'Non classé',price:price,moq:moq,remark:remark,img:pendingImageMap[ref]||''});
+      catalogue.push({id:nextId++,group:group,ref:ref,desc:desc||ref,cat:cat||'Non classé',price:price,moq:moq,remark:remark,img:imgData});
       added++;
     }
   });
@@ -308,7 +401,15 @@ function runImport(){
 }
 
 function exportCat(){var blob=new Blob([JSON.stringify(catalogue,null,2)],{type:'application/json'});var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='bglam_'+SK+'_'+new Date().toISOString().slice(0,10)+'.json';a.click();toast('Backup téléchargé');}
-function clearCatalogue(){if(!confirm('Vider tout le catalogue '+SN+' ?\nCette action supprime toutes les références et photos.\n\nFais un backup avant si nécessaire !'))return;catalogue=[];qtys={};nextId=1;save();render();toast('Catalogue vidé');}
+function clearCatalogue(){
+  if(!confirm('Vider tout le catalogue '+SN+' ?\nCette action supprime toutes les références, photos et la sauvegarde PostgreSQL.\n\nImpossible à annuler !'))return;
+  catalogue=[];qtys={};nextId=1;
+  try{localStorage.removeItem('bg_cat_'+SK);localStorage.removeItem('bg_qty_'+SK);}catch(e){}
+  fetch(BACKEND_URL+'/catalogue/'+SK+'/clear',{method:'POST'})
+    .then(function(){toast('Catalogue vidé — PostgreSQL effacé');})
+    .catch(function(){toast('Catalogue vidé localement');});
+  render();
+}
 
 function getFiltered(){
   var q=document.getElementById('srch').value.toLowerCase(),fc=document.getElementById('fCat').value,os=document.getElementById('fSel').checked;
@@ -433,9 +534,6 @@ function showPrint(){
   document.getElementById('printOv').classList.add('open');
 }
 
-/* ── URL du backend Railway ── changez si vous redéployez ── */
-var BACKEND_URL = 'https://bglam-commandes-gbzy-production.up.railway.app';
-
 function exportXLS(){
   var sel=catalogue.filter(function(r){return qtys[r.id]>0;});
   if(!sel.length){alert('Aucun article sélectionné.');return;}
@@ -504,7 +602,7 @@ function exportXLSLocal(sel,name,date){
 }
 
 function toast(msg){var t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(function(){t.classList.remove('show');},3000);}
-loadSaved();render();
+loadSaved();
 </script>
 </body>
 </html>
