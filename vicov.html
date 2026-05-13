@@ -320,10 +320,14 @@ function handleXlsFile(file){
                     var evt = JSON.parse(part.slice(6));
                     if(evt.type==='progress'){
                       var lines2 = log.textContent.split('\n');
-                      for(var i=lines2.length-1;i>=0;i--){
-                        if(lines2[i].startsWith('⬆️')){
-                          lines2[i]='⬆️ Upload GitHub : '+evt.done+'/'+evt.total+' ('+Math.round(evt.done/evt.total*100)+'%)';
-                          break;
+                      if(evt.key && (evt.key.indexOf('⚠️')===0 || evt.key.indexOf('✅ Retry')===0 || evt.key.indexOf('❌')===0)){
+                        lines2.push(evt.key);
+                      } else {
+                        for(var i=lines2.length-1;i>=0;i--){
+                          if(lines2[i].startsWith('⬆️')){
+                            lines2[i]='⬆️ Upload GitHub : '+evt.done+'/'+evt.total+' ('+Math.round(evt.done/evt.total*100)+'%)';
+                            break;
+                          }
                         }
                       }
                       log.textContent = lines2.join('\n');
