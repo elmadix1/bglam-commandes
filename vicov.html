@@ -295,9 +295,7 @@ function handleXlsFile(file){
         log.textContent += '✓ '+data.matched+' photos extraites sur '+data.total_refs+' références\n';
         log.textContent += '⬆️ Upload GitHub en cours : 0/'+total+'\n';
         
-        // Stream upload progress via SSE
-        var es = new EventSource(BACKEND_URL+'/upload-images?dummy=1');
-        // Actually SSE with POST needs fetch - use fetch with ReadableStream
+        // Upload via SSE streaming
         fetch(BACKEND_URL+'/upload-images', {
           method:'POST',
           headers:{'Content-Type':'application/json'},
@@ -433,7 +431,7 @@ function runImport(){
       var descDiff = desc && ex.desc && desc !== ex.desc;
       var groupDiff = group && ex.group && group !== ex.group;
 
-      if(descDiff && groupDiff){
+      if(groupDiff){
         // Genuinely different product with same ref — add with group suffix
         var newRef = ref + ' (' + group + ')';
         // Only add if this suffixed ref doesn't already exist

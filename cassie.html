@@ -377,17 +377,29 @@ function runImport(){
     var imgKey = group ? (ref + '_' + group) : ref;
     var githubUrl = pendingUrlMap[imgKey] || pendingUrlMap[ref] || '';
     var imgData = githubUrl || pendingImageMap[imgKey] || pendingImageMap[ref] || '';
-    var ex=catalogue.find(function(c){return c.ref===ref;});
+    var ex = catalogue.find(function(c){ return c.ref === ref; });
     if(ex){
-      var ch=false;
-      if(price!==null&&ex.price!==price){ex.price=price;ch=true;}
-      if(moq!==null&&ex.moq!==moq){ex.moq=moq;ch=true;}
-      if(group&&ex.group!==group){ex.group=group;ch=true;}
-      if(desc&&ex.desc!==desc){ex.desc=desc;ch=true;}
-      if(cat&&!ex.cat){ex.cat=cat;ch=true;}
-      if(remark&&!ex.remark){ex.remark=remark;ch=true;}
-      if(imgData&&!ex.img){ex.img=imgData;ch=true;}
-      ch?updated++:skipped++;
+      var descDiff = desc && ex.desc && desc !== ex.desc;
+      var groupDiff = group && ex.group && group !== ex.group;
+      if(groupDiff){
+        var newRef = ref + ' (' + group + ')';
+        var alreadyExists = catalogue.find(function(c){ return c.ref === newRef; });
+        if(!alreadyExists){
+          if(ex.ref === ref && ex.group){ ex.ref = ref + ' (' + ex.group + ')'; }
+          catalogue.push({id:nextId++,group:group,ref:newRef,desc:desc||ref,cat:cat||'Non classé',price:price,moq:moq,remark:remark,img:imgData});
+          added++;
+        } else { skipped++; }
+      } else {
+        var ch=false;
+        if(price!==null&&ex.price!==price){ex.price=price;ch=true;}
+        if(moq!==null&&ex.moq!==moq){ex.moq=moq;ch=true;}
+        if(group&&ex.group!==group){ex.group=group;ch=true;}
+        if(desc&&ex.desc!==desc){ex.desc=desc;ch=true;}
+        if(cat&&!ex.cat){ex.cat=cat;ch=true;}
+        if(remark&&!ex.remark){ex.remark=remark;ch=true;}
+        if(imgData&&!ex.img){ex.img=imgData;ch=true;}
+        ch?updated++:skipped++;
+      }
     }else{
       catalogue.push({id:nextId++,group:group,ref:ref,desc:desc||ref,cat:cat||'Non classé',price:price,moq:moq,remark:remark,img:imgData});
       added++;
