@@ -126,9 +126,22 @@ def upload_image_to_github(img_key, b64_data):
 
         except urllib.error.HTTPError as e:
             if e.code == 409:
-                return f"{IMAGES_BASE_URL}/{filename}"
+                # Conflict — fetch SHA and retry with it
+                try:
+                    req2 = urllib.request.Request(api_url, headers=headers)
+                    with urllib.request.urlopen(req2, timeout=15) as resp2:
+                        sha = json.loads(resp2.read()).get('sha')
+                    if sha:
+                        continue  # retry loop will use the sha
+                except:
+                    pass
+                if attempt < 4:
+                    time.sleep(2 ** attempt)
+                    continue
+                print(f"GitHub upload failed after 5 attempts for {img_key}: 409 Conflict")
+                return None
             if attempt < 4:
-                time.sleep(2 ** attempt)  # exponential backoff: 1s, 2s, 4s, 8s
+                time.sleep(2 ** attempt)
                 continue
             print(f"GitHub upload failed after 5 attempts for {img_key}: HTTP {e.code}")
             return None
@@ -411,41 +424,14 @@ def upload_images():
         url_map = {}
         yield f"data: {json.dumps({'type':'start','total':total})}\n\n"
         
-        from concurrent.futures import ThreadPoolExecutor, as_completed
-        futures = {}
-        failed = []
-        with ThreadPoolExecutor(max_workers=5) as executor:
-            for img_key, b64 in images.items():
-                futures[executor.submit(upload_image_to_github, img_key, b64)] = img_key
-            for future in as_completed(futures):
-                img_key2 = futures[future]
-                try:
-                    url = future.result()
-                except Exception:
-                    url = None
-                if url:
-                    url_map[img_key2] = url
-                else:
-                    failed.append((img_key2, images[img_key2]))
-                done += 1
-                yield f"data: {json.dumps({'type':'progress','done':done,'total':total,'key':img_key2})}\n\n"
-        
-        # Retry failed uploads with progress
-        if failed:
-            import time
-            retry_total = len(failed)
-            retry_done = 0
-            yield f"data: {json.dumps({'type':'progress','done':done,'total':total,'key':f'⚠️ {retry_total} images échouées — retry en cours...'})}\n\n"
-            for img_key2, b64 in failed:
-                time.sleep(1)
-                url = upload_image_to_github(img_key2, b64)
-                retry_done += 1
-                if url:
-                    url_map[img_key2] = url
-                    status = f'✅ Retry {retry_done}/{retry_total} : {img_key2}'
-                else:
-                    status = f'❌ Échec définitif {retry_done}/{retry_total} : {img_key2}'
-                yield f"data: {json.dumps({'type':'progress','done':done,'total':total,'key':status})}\n\n" 
+        import time
+        for img_key2, b64 in images.items():
+            url = upload_image_to_github(img_key2, b64)
+            if url:
+                url_map[img_key2] = url
+            done += 1
+            yield f"data: {json.dumps({'type':'progress','done':done,'total':total,'key':img_key2})}\n\n"
+            time.sleep(0.2)
 
         yield f"data: {json.dumps({'type':'done','urls':url_map,'count':len(url_map)})}\n\n"
 
