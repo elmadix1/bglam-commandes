@@ -121,8 +121,15 @@ def upload_image_to_github(img_key, b64_data):
             data = json.dumps(payload).encode('utf-8')
             req = urllib.request.Request(api_url, data=data, method='PUT', headers=headers)
             with urllib.request.urlopen(req, timeout=30) as resp:
-                json.loads(resp.read())
-                return f"{IMAGES_BASE_URL}/{filename}"
+                resp_data = json.loads(resp.read())
+                if 'content' in resp_data or 'commit' in resp_data:
+                    return f"{IMAGES_BASE_URL}/{filename}"
+                else:
+                    print(f"[UPLOAD FAIL] {filename}: unexpected response keys={list(resp_data.keys())}")
+                    if attempt < 4:
+                        time.sleep(2 ** attempt)
+                        continue
+                    return None
 
         except urllib.error.HTTPError as e:
             if e.code == 409:
@@ -143,13 +150,13 @@ def upload_image_to_github(img_key, b64_data):
             if attempt < 4:
                 time.sleep(2 ** attempt)
                 continue
-            print(f"GitHub upload failed after 5 attempts for {img_key}: HTTP {e.code}")
+            print(f"[UPLOAD FAIL] {filename} HTTP {e.code} after {attempt+1} attempts")
             return None
         except Exception as e:
             if attempt < 4:
                 time.sleep(2 ** attempt)
                 continue
-            print(f"GitHub upload failed after 5 attempts for {img_key}: {e}")
+            print(f"[UPLOAD FAIL] {filename}: {type(e).__name__}: {e} after {attempt+1} attempts")
             return None
     return None
 
