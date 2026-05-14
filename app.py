@@ -277,7 +277,7 @@ def extract_images():
             ref = row_to_ref.get(img_row)
             group = row_to_group.get(img_row)
             if not ref:
-                for off in range(-15, 16):
+                for off in range(-30, 31):
                     ref = row_to_ref.get(img_row+off)
                     group = row_to_group.get(img_row+off)
                     if ref: break
@@ -292,15 +292,9 @@ def extract_images():
 
         # Images will be uploaded via /upload-images endpoint (SSE streaming)
 
-        url_map = {}
-        if GITHUB_TOKEN:
-            for img_key in result:
-                safe_key = re.sub(r'[^a-zA-Z0-9_-]', '_', img_key)
-                url_map[img_key] = f"{IMAGES_BASE_URL}/{safe_key}.jpg"
-
         return jsonify({
             "images": result,
-            "urls": url_map,
+            "urls": {},
             "matched": len(result),
             "total_images": len(img_map),
             "total_refs": len(row_to_ref)
@@ -624,6 +618,25 @@ def update_supplier():
                        (name, emoji, badge_type, sub, key))
             conn.commit(); cur.close(); conn.close()
         return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/upload-single-image', methods=['POST','OPTIONS'])
+def upload_single_image():
+    if request.method == 'OPTIONS': return make_response('', 204)
+    try:
+        data = request.get_json(force=True)
+        img_key = data.get('img_key', '')
+        b64 = data.get('b64', '')
+        if not img_key or not b64:
+            return jsonify({'error': 'Missing img_key or b64'}), 400
+        if b64.startswith('data:'):
+            b64 = b64.split(',', 1)[1]
+        url = upload_image_to_github(img_key, b64)
+        if url:
+            return jsonify({'ok': True, 'url': url})
+        return jsonify({'ok': False, 'error': 'Upload failed'})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

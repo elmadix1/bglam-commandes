@@ -145,6 +145,7 @@ tr.hq:hover td{background:#d5f5e8}
   <div class="sep"></div>
   <button class="btn by" style="font-size:11px;padding:5px 10px" onclick="toggleAdd()">+ Produit</button>
   <button class="btn bk" style="font-size:11px;padding:5px 10px" onclick="exportCat()">💾 Backup</button>
+  <button class="btn bb" style="font-size:11px;padding:5px 10px" onclick="repairImages()">🔧 Réparer images</button>
   <button class="btn bdel" style="font-size:11px;padding:5px 10px" onclick="clearCatalogue()">🗑 Vider catalogue</button>
 </div>
 <div class="add-panel" id="addPanel">
@@ -675,6 +676,35 @@ function exportXLSLocal(sel,name,date){
   ws['!merges']=[{s:{r:0,c:0},e:{r:0,c:9}}];
   var wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Commande');
   XLSX.writeFile(wb,(SN+'_'+name).replace(/[^a-zA-Z0-9_\- ]/g,'_')+'_'+date.replace(/\//g,'-')+'.xlsx');
+}
+
+function repairImages(){
+  // Find all items with a GitHub URL that returns 404
+  var items = catalogue.filter(function(r){ return r.img && r.img.indexOf('github.io') > -1; });
+  if(!items.length){ toast('Aucune image GitHub à vérifier'); return; }
+  
+  toast('Vérification de '+items.length+' images...');
+  var fixed = 0, checked = 0;
+  
+  items.forEach(function(item){
+    var img = new window.Image();
+    img.onload = function(){
+      checked++;
+      if(checked === items.length) toast('✅ '+fixed+' images réparées sur '+items.length+' vérifiées');
+    };
+    img.onerror = function(){
+      // Image 404 - need to re-upload
+      checked++;
+      // Extract img_key from URL
+      var url = item.img;
+      var filename = url.split('/').pop().replace('.jpg','');
+      // We can't re-upload without the base64 data
+      // Mark as missing
+      console.warn('Image manquante:', item.ref, url);
+      if(checked === items.length) toast('⚠️ Reimporte le fichier Excel pour réparer les images manquantes');
+    };
+    img.src = item.img + '?t=' + Date.now();
+  });
 }
 
 function toast(msg){var t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(function(){t.classList.remove('show');},3000);}
