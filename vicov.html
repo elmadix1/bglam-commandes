@@ -442,10 +442,7 @@ function runImport(){
         // Only add if this suffixed ref doesn't already exist
         var alreadyExists = catalogue.find(function(c){ return c.ref === newRef; });
         if(!alreadyExists){
-          // Rename original if not already renamed
-          if(ex.ref === ref && ex.group){
-            ex.ref = ref + ' (' + ex.group + ')';
-          }
+          // Don't rename original - just add new entry with suffix
           catalogue.push({id:nextId++,group:group,ref:newRef,desc:desc||ref,cat:cat||'Non classé',price:price,moq:moq,remark:remark,img:imgData});
           added++;
         } else {
